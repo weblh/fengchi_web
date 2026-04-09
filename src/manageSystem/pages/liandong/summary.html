@@ -1,0 +1,645 @@
+
+<!DOCTYPE html>
+
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>百川盈孚 · 废钢价格汇总表</title>
+    <!-- SheetJS 用于导出 Excel -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        body {
+            background: #f0f2f5;
+            margin: 0;
+            padding: 30px 20px;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .card {
+            background: white;
+            border-radius: 32px;
+            box-shadow: 0 12px 28px rgba(0,0,0,0.08);
+            padding: 24px 28px;
+            transition: all 0.2s;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #1e4663;
+            margin: 0 0 8px 0;
+            border-left: 6px solid #f5a623;
+            padding-left: 20px;
+        }
+        .sub {
+            color: #5a6e8a;
+            margin-bottom: 28px;
+            padding-left: 26px;
+        }
+        .toolbar {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 20px;
+        }
+        .export-btn {
+            background: #2c6e2f;
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            font-weight: 500;
+            transition: 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .export-btn:hover {
+            background: #1f5a22;
+            transform: translateY(-1px);
+        }
+        .summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 1rem;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        .summary-table th,
+        .summary-table td {
+            border: 1px solid #e2e8f0;
+            padding: 16px 12px;
+            text-align: center;
+        }
+        .summary-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #1e3a5f;
+        }
+        .summary-table td {
+            font-weight: 500;
+        }
+        .price-value {
+            font-weight: 700;
+            color: #2c6e2f;
+            font-size: 1.2rem;
+        }
+        .btn-group {
+            margin-top: 32px;
+            text-align: center;
+        }
+        .btn-detail {
+            background: #1e3a5f;
+            border: none;
+            color: white;
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: 500;
+            border-radius: 40px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: 0.2s;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        }
+        .btn-detail:hover {
+            background: #0f2c48;
+            transform: translateY(-1px);
+        }
+        .update-time {
+            margin-top: 24px;
+            text-align: right;
+            font-size: 0.75rem;
+            color: #8a9bb0;
+        }
+        footer {
+            margin-top: 40px;
+            text-align: center;
+            color: #7f8c9a;
+            font-size: 0.75rem;
+        }
+        @media (max-width: 600px) {
+            .card { padding: 16px; }
+            .summary-table th, .summary-table td { padding: 12px 6px; font-size: 0.85rem; }
+            .toolbar { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="card">
+        <h1>📊 废钢联动价格汇总表</h1>
+        <div class="sub">百川盈孚 · 含税参考价（元/吨）</div>
+
+        <div class="toolbar">
+            <button class="export-btn" id="exportExcelBtn">📎 导出 Excel</button>
+        </div>
+
+        <table class="summary-table" id="summaryTable">
+            <thead>
+                <tr><th>料型</th><th>当日价格（最新日）</th><th>当月联动均价（3.23~4.22）</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>罐子料（加工）</td><td id="gunLatest" class="price-value">--</td><td id="gunAvgMonth">--</td></tr>
+                <tr><td>灰铁废铸件（普通）</td><td id="htLatest" class="price-value">--</td><td id="htAvgMonth">--</td></tr>
+                <tr><td>除锈二级</td><td id="cxLatest" class="price-value">--</td><td id="cxAvgMonth">--</td></tr>
+                <tr><td>冲子料（≥10mm）</td><td id="gbLatest" class="price-value">--</td><td id="gbAvgMonth">--</td></tr>
+                <tr><td>硅锰合金（6517）</td><td id="gmLatest" class="price-value">--</td><td id="gmAvgMonth">--</td></tr>
+                <tr><td>硅铁</td><td id="gtLatest" class="price-value">--</td><td id="gtAvgMonth">--</td></tr>
+            </tbody>
+        </table>
+
+        <div class="btn-group">
+            <a href="details.html" class="btn-detail">✏️ 查看/编辑明细数据</a>
+        </div>
+        <div class="update-time" id="lastSyncTip">数据同步状态：等待加载</div>
+    </div>
+    <footer>数据基于百川盈孚公式实时计算，修改明细后自动同步汇总。</footer>
+</div>
+
+<script>
+    // ---------- 共享数据结构（与details.html完全一致）----------
+    const STORAGE_KEY = 'steel_price_data_v1';
+    // 日期范围
+    const startDate = new Date(2026, 2, 23); // 3月23
+    const endDate = new Date(2026, 3, 22);   // 4月22
+    const dateList = [];
+    let cur = new Date(startDate);
+    while (cur <= endDate) {
+        const y = cur.getFullYear();
+        const m = String(cur.getMonth() + 1).padStart(2,'0');
+        const d = String(cur.getDate()).padStart(2,'0');
+        dateList.push(`${y}-${m}-${d}`);
+        cur.setDate(cur.getDate() + 1);
+    }
+
+    // 默认初始数据（3.23~3.28已知，其余留空）
+    const defaultGuan = {};
+    const defaultHui = {};
+    const defaultChu = {};
+
+    // 罐子料: [北京6-8,广州6-8,广州重废,太原重废]
+    const guanKnown = {
+        "2026-03-23":[2490,2320,2320,2370],
+        "2026-03-24":[2490,2320,2320,2370],
+        "2026-03-25":[2490,2320,2320,2370],
+        "2026-03-26":[2470,2320,2370,2370],
+        "2026-03-27":[2495,2335,2335,2390],
+        "2026-03-28":[2470,2320,2320,2370]
+    };
+    // 灰铁: [北京重废,广州重废,太原重废]
+    const huiKnown = {
+        "2026-03-23":[2490,2320,2370],
+        "2026-03-24":[2490,2320,2370],
+        "2026-03-25":[2490,2320,2370],
+        "2026-03-26":[2470,2320,2370],
+        "2026-03-27":[2495,2335,2390],
+        "2026-03-28":[2470,2320,2370]
+    };
+    // 除锈二级: [太原重废,北京重废,石家庄重废]
+    const chuKnown = {
+        "2026-03-23":[2370,2490,2392],
+        "2026-03-24":[2370,2490,2392],
+        "2026-03-25":[2370,2490,2392],
+        "2026-03-26":[2370,2470,2383],
+        "2026-03-27":[2390,2495,2405],
+        "2026-03-28":[2370,2470,2383]
+    };
+
+    // 构建默认rows (原始输入)
+    function buildDefaultRows() {
+        let guanRows = [];
+        let huiRows = [];
+        let chuRows = [];
+        for (let date of dateList) {
+            // 罐子料
+            let gKnown = guanKnown[date];
+            guanRows.push({
+                date, bj: gKnown ? gKnown[0] : '', gz1: gKnown ? gKnown[1] : '',
+                gz2: gKnown ? gKnown[2] : '', ty: gKnown ? gKnown[3] : ''
+            });
+            // 灰铁
+            let hKnown = huiKnown[date];
+            huiRows.push({
+                date, bj: hKnown ? hKnown[0] : '', gz: hKnown ? hKnown[1] : '', ty: hKnown ? hKnown[2] : ''
+            });
+            // 除锈
+            let cKnown = chuKnown[date];
+            chuRows.push({
+                date, ty: cKnown ? cKnown[0] : '', bj: cKnown ? cKnown[1] : '', sjz: cKnown ? cKnown[2] : ''
+            });
+        }
+        return { guanRows, huiRows, chuRows };
+    }
+
+    // 计算罐子料衍生字段
+    function computeGuanRow(row) {
+        const bj = row.bj === '' ? 0 : row.bj;
+        const gz1 = row.gz1 === '' ? 0 : row.gz1;
+        const gz2 = row.gz2 === '' ? 0 : row.gz2;
+        const ty = row.ty === '' ? 0 : row.ty;
+        const avg = (bj + gz1 + gz2 + ty) / 4;
+        const freight = avg + 200;
+        const linkPrice = freight * 1.13 - 150;
+        return { avg, freight, linkPrice };
+    }
+
+    // 计算灰铁 (依赖前序)
+    function computeHuiRowsFull(rows) {
+        let lastLink = null, lastAvg = null;
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            if (r.bj !== '' && r.gz !== '' && r.ty !== '') {
+                const avg = (r.bj + r.gz + r.ty) / 3;
+                let change = 0, linkPrice = 0;
+                if (lastLink !== null && lastAvg !== null) {
+                    change = avg - lastAvg;
+                    linkPrice = lastLink + change;
+                } else {
+                    change = 0;
+                    linkPrice = 2616.33333333332;
+                }
+                r.avg = avg;
+                r.change = change;
+                r.linkPrice = linkPrice;
+                lastLink = linkPrice;
+                lastAvg = avg;
+            } else {
+                r.avg = '';
+                r.change = '';
+                r.linkPrice = '';
+                // 保留last，等待后续有效行继续累计
+            }
+        }
+        return rows;
+    }
+
+    // 除锈二级
+    function computeChuRowsFull(rows) {
+        let lastLink = null, lastAvg = null;
+        for (let i = 0; i < rows.length; i++) {
+            const r = rows[i];
+            if (r.ty !== '' && r.bj !== '' && r.sjz !== '') {
+                const avg = (r.ty + r.bj + r.sjz) / 3;
+                let change = 0, linkPrice = 0;
+                if (lastLink !== null && lastAvg !== null) {
+                    change = avg - lastAvg;
+                    linkPrice = lastLink + change;
+                } else {
+                    change = 0;
+                    linkPrice = 2362.33333333333;
+                }
+                r.avg = avg;
+                r.change = change;
+                r.linkPrice = linkPrice;
+                lastLink = linkPrice;
+                lastAvg = avg;
+            } else {
+                r.avg = '';
+                r.change = '';
+                r.linkPrice = '';
+            }
+        }
+        return rows;
+    }
+
+    // 计算罐子料所有衍生
+    function computeGuanRowsFull(rows) {
+        for (let r of rows) {
+            if (r.bj !== '' && r.gz1 !== '' && r.gz2 !== '' && r.ty !== '') {
+                const { avg, freight, linkPrice } = computeGuanRow(r);
+                r.avg = avg; r.freight = freight; r.linkPrice = linkPrice;
+            } else {
+                r.avg = ''; r.freight = ''; r.linkPrice = '';
+            }
+        }
+        return rows;
+    }
+
+    // 汇总所需数据：从localStorage读取，若无则构建默认并存储
+    function loadData() {
+        let stored = localStorage.getItem(STORAGE_KEY);
+        if (!stored) {
+            const { guanRows, huiRows, chuRows } = buildDefaultRows();
+            const guanFull = computeGuanRowsFull(guanRows);
+            const huiFull = computeHuiRowsFull(huiRows);
+            const chuFull = computeChuRowsFull(chuRows);
+            const data = { guanRows: guanFull, huiRows: huiFull, chuRows: chuFull };
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            return data;
+        }
+        const parsed = JSON.parse(stored);
+        // 确保衍生字段存在（旧数据可能没有）
+        if (parsed.guanRows && parsed.guanRows.length > 0 && parsed.guanRows[0].avg === undefined) {
+            parsed.guanRows = computeGuanRowsFull(parsed.guanRows);
+            parsed.huiRows = computeHuiRowsFull(parsed.huiRows);
+            parsed.chuRows = computeChuRowsFull(parsed.chuRows);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+        }
+        return parsed;
+    }
+
+    // 更新汇总表
+    function updateSummary() {
+        const data = loadData();
+        const { guanRows, huiRows, chuRows, gangbanRows, guimengRows, guitieRows } = data;
+
+        // 最新有效联动价/平均价
+        let gunLatest = null;
+        for (let i = guanRows.length-1; i>=0; i--) {
+            if (guanRows[i].linkPrice !== '' && guanRows[i].linkPrice !== null && !isNaN(guanRows[i].linkPrice)) {
+                gunLatest = guanRows[i].linkPrice; break;
+            }
+        }
+        let huiLatest = null;
+        for (let i = huiRows.length-1; i>=0; i--) {
+            if (huiRows[i].linkPrice !== '' && huiRows[i].linkPrice !== null && !isNaN(huiRows[i].linkPrice)) {
+                huiLatest = huiRows[i].linkPrice; break;
+            }
+        }
+        let chuLatest = null;
+        for (let i = chuRows.length-1; i>=0; i--) {
+            if (chuRows[i].avg !== '' && chuRows[i].avg !== null && !isNaN(chuRows[i].avg)) {
+                chuLatest = chuRows[i].avg; break;
+            }
+        }
+        
+        // 新增的三个表格数据
+        let gbLatest = null;
+        if (gangbanRows) {
+            for (let i = gangbanRows.length-1; i>=0; i--) {
+                if (gangbanRows[i].linkPrice !== '' && gangbanRows[i].linkPrice !== null && !isNaN(gangbanRows[i].linkPrice)) {
+                    gbLatest = gangbanRows[i].linkPrice; break;
+                }
+            }
+        }
+        let gmLatest = null;
+        if (guimengRows) {
+            for (let i = guimengRows.length-1; i>=0; i--) {
+                if (guimengRows[i].linkPrice !== '' && guimengRows[i].linkPrice !== null && !isNaN(guimengRows[i].linkPrice)) {
+                    gmLatest = guimengRows[i].linkPrice; break;
+                }
+            }
+        }
+        let gtLatest = null;
+        if (guitieRows) {
+            for (let i = guitieRows.length-1; i>=0; i--) {
+                if (guitieRows[i].linkPrice !== '' && guitieRows[i].linkPrice !== null && !isNaN(guitieRows[i].linkPrice)) {
+                    gtLatest = guitieRows[i].linkPrice; break;
+                }
+            }
+        }
+
+        // 月平均联动价 (3.23~4.22 所有非空)
+        function avgPrice(arr, key) {
+            if (!arr) return 0;
+            let sum = 0, cnt = 0;
+            for (let row of arr) {
+                let v = row[key];
+                if (v !== '' && v !== null && typeof v === 'number' && !isNaN(v)) {
+                    sum += v; cnt++;
+                }
+            }
+            return cnt ? sum / cnt : 0;
+        }
+        const gunAvg = avgPrice(guanRows, 'linkPrice');
+        const huiAvg = avgPrice(huiRows, 'linkPrice');
+        const chuAvg = avgPrice(chuRows, 'avg');  // 除锈二级取平均价作为联动价参考
+        const gbAvg = avgPrice(gangbanRows, 'linkPrice');
+        const gmAvg = avgPrice(guimengRows, 'linkPrice');
+        const gtAvg = avgPrice(guitieRows, 'linkPrice');
+
+        document.getElementById('gunLatest').innerText = gunLatest !== null ? gunLatest.toFixed(2) : '—';
+        document.getElementById('htLatest').innerText = huiLatest !== null ? huiLatest.toFixed(2) : '—';
+        document.getElementById('cxLatest').innerText = chuLatest !== null ? chuLatest.toFixed(2) : '—';
+        document.getElementById('gbLatest').innerText = gbLatest !== null ? gbLatest.toFixed(2) : '—';
+        document.getElementById('gmLatest').innerText = gmLatest !== null ? gmLatest.toFixed(2) : '—';
+        document.getElementById('gtLatest').innerText = gtLatest !== null ? gtLatest.toFixed(2) : '—';
+        
+        document.getElementById('gunAvgMonth').innerText = gunAvg.toFixed(2);
+        document.getElementById('htAvgMonth').innerText = huiAvg.toFixed(2);
+        document.getElementById('cxAvgMonth').innerText = chuAvg.toFixed(2);
+        document.getElementById('gbAvgMonth').innerText = gbAvg.toFixed(2);
+        document.getElementById('gmAvgMonth').innerText = gmAvg.toFixed(2);
+        document.getElementById('gtAvgMonth').innerText = gtAvg.toFixed(2);
+        
+        document.getElementById('lastSyncTip').innerHTML = `✅ 数据同步于 ${new Date().toLocaleTimeString()} · 最新明细与汇总一致`;
+    }
+
+    // 导出 Excel 功能
+    function exportToExcel() {
+        const now = new Date();
+        const timeStr = now.toLocaleString('zh-CN');
+        
+        // 创建工作簿
+        const wb = XLSX.utils.book_new();
+        
+        // 1. 导出汇总表
+        const summaryRows = [
+            ['料型', '当日价格（最新日）', '当月联动均价（3.23~4.22）'],
+            ['罐子料（加工）', document.getElementById('gunLatest').innerText, document.getElementById('gunAvgMonth').innerText],
+            ['灰铁废铸件（普通）', document.getElementById('htLatest').innerText, document.getElementById('htAvgMonth').innerText],
+            ['除锈二级', document.getElementById('cxLatest').innerText, document.getElementById('cxAvgMonth').innerText],
+            ['聊城钢板料（≥10mm）', document.getElementById('gbLatest').innerText, document.getElementById('gbAvgMonth').innerText],
+            ['内蒙硅锰（6517）', document.getElementById('gmLatest').innerText, document.getElementById('gmAvgMonth').innerText],
+            ['宁夏甘肃硅铁', document.getElementById('gtLatest').innerText, document.getElementById('gtAvgMonth').innerText],
+            ['', '', ''],
+            ['导出时间：', timeStr, '']
+        ];
+        const summaryWs = XLSX.utils.aoa_to_sheet(summaryRows);
+        XLSX.utils.book_append_sheet(wb, summaryWs, '废钢价格汇总');
+        
+        // 2. 导出明细数据
+        const data = loadData();
+        const { guanRows, huiRows, chuRows } = data;
+        
+        // 导出罐子料明细
+        const guanRowsExcel = [
+            ['日期', '北京6-8', '广州6-8', '广州重废', '太原重废', '均价', '运费', '涨跌', '含税联动价']
+        ];
+        for (let row of guanRows) {
+            guanRowsExcel.push([
+                row.date,
+                row.bj || '',
+                row.gz1 || '',
+                row.gz2 || '',
+                row.ty || '',
+                row.avg ? row.avg.toFixed(2) : '',
+                row.freight ? row.freight.toFixed(2) : '',
+                row.change ? row.change.toFixed(2) : '',
+                row.linkPrice ? row.linkPrice.toFixed(2) : ''
+            ]);
+        }
+        const guanWs = XLSX.utils.aoa_to_sheet(guanRowsExcel);
+        XLSX.utils.book_append_sheet(wb, guanWs, '罐子料明细');
+        
+        // 导出灰铁废铸件明细
+        const huiRowsExcel = [
+            ['日期', '北京重废', '广州重废', '太原重废', '均价', '涨跌', '联动价']
+        ];
+        for (let row of huiRows) {
+            huiRowsExcel.push([
+                row.date,
+                row.bj || '',
+                row.gz || '',
+                row.ty || '',
+                row.avg ? row.avg.toFixed(2) : '',
+                row.change ? row.change.toFixed(2) : '',
+                row.linkPrice ? row.linkPrice.toFixed(2) : ''
+            ]);
+        }
+        const huiWs = XLSX.utils.aoa_to_sheet(huiRowsExcel);
+        XLSX.utils.book_append_sheet(wb, huiWs, '灰铁废铸件明细');
+        
+        // 导出除锈二级明细
+        const chuRowsExcel = [
+            ['日期', '太原重废', '北京重废', '石家庄重废', '平均价', '涨跌', '含税价']
+        ];
+        for (let row of chuRows) {
+            chuRowsExcel.push([
+                row.date,
+                row.ty || '',
+                row.bj || '',
+                row.sjz || '',
+                row.avg ? row.avg.toFixed(2) : '',
+                row.change ? row.change.toFixed(2) : '',
+                row.linkPrice ? row.linkPrice.toFixed(2) : ''
+            ]);
+        }
+        const chuWs = XLSX.utils.aoa_to_sheet(chuRowsExcel);
+        XLSX.utils.book_append_sheet(wb, chuWs, '除锈二级明细');
+        
+        // 导出聊城钢板料明细
+        if (data.gangbanRows) {
+            const gangbanRowsExcel = [
+                ['日期', '聊城钢板料（≥10mm）', '涨跌', '冲子料含税价']
+            ];
+            for (let row of data.gangbanRows) {
+                gangbanRowsExcel.push([
+                    row.date,
+                    row.price || '',
+                    row.change || '',
+                    row.linkPrice ? row.linkPrice.toFixed(2) : ''
+                ]);
+            }
+            const gangbanWs = XLSX.utils.aoa_to_sheet(gangbanRowsExcel);
+            XLSX.utils.book_append_sheet(wb, gangbanWs, '聊城钢板料明细');
+        }
+        
+        // 导出内蒙硅锰明细
+        if (data.guimengRows) {
+            const guimengRowsExcel = [
+                ['日期', '内蒙硅锰（6517）', '涨跌', '含税价']
+            ];
+            for (let row of data.guimengRows) {
+                guimengRowsExcel.push([
+                    row.date,
+                    row.price || '',
+                    row.change || '',
+                    row.linkPrice ? row.linkPrice.toFixed(2) : ''
+                ]);
+            }
+            const guimengWs = XLSX.utils.aoa_to_sheet(guimengRowsExcel);
+            XLSX.utils.book_append_sheet(wb, guimengWs, '内蒙硅锰明细');
+        }
+        
+        // 导出宁夏甘肃硅铁明细
+        if (data.guitieRows) {
+            const guitieRowsExcel = [
+                ['日期', '宁夏硅铁（72#）', '甘肃硅铁（75#）', '均价', '涨跌', '含税价']
+            ];
+            for (let row of data.guitieRows) {
+                guitieRowsExcel.push([
+                    row.date,
+                    row.nx || '',
+                    row.gs || '',
+                    row.avg ? row.avg.toFixed(2) : '',
+                    row.change || '',
+                    row.linkPrice ? row.linkPrice.toFixed(2) : ''
+                ]);
+            }
+            const guitieWs = XLSX.utils.aoa_to_sheet(guitieRowsExcel);
+            XLSX.utils.book_append_sheet(wb, guitieWs, '宁夏甘肃硅铁明细');
+        }
+        
+        // 导出聊城钢板料明细
+        if (data.gangbanRows) {
+            const gangbanRowsExcel = [
+                ['日期', '聊城钢板料（≥10mm）', '涨跌', '冲子料含税价']
+            ];
+            for (let row of data.gangbanRows) {
+                gangbanRowsExcel.push([
+                    row.date,
+                    row.price || '',
+                    row.change || '',
+                    row.linkPrice ? row.linkPrice.toFixed(2) : ''
+                ]);
+            }
+            const gangbanWs = XLSX.utils.aoa_to_sheet(gangbanRowsExcel);
+            XLSX.utils.book_append_sheet(wb, gangbanWs, '聊城钢板料明细');
+        }
+        
+        // 导出内蒙硅锰明细
+        if (data.guimengRows) {
+            const guimengRowsExcel = [
+                ['日期', '内蒙硅锰（6517）', '涨跌', '含税价']
+            ];
+            for (let row of data.guimengRows) {
+                guimengRowsExcel.push([
+                    row.date,
+                    row.price || '',
+                    row.change || '',
+                    row.linkPrice ? row.linkPrice.toFixed(2) : ''
+                ]);
+            }
+            const guimengWs = XLSX.utils.aoa_to_sheet(guimengRowsExcel);
+            XLSX.utils.book_append_sheet(wb, guimengWs, '内蒙硅锰明细');
+        }
+        
+        // 导出宁夏甘肃硅铁明细
+        if (data.guitieRows) {
+            const guitieRowsExcel = [
+                ['日期', '宁夏硅铁（72#）', '甘肃硅铁（75#）', '均价', '涨跌', '含税价']
+            ];
+            for (let row of data.guitieRows) {
+                guitieRowsExcel.push([
+                    row.date,
+                    row.nx || '',
+                    row.gs || '',
+                    row.avg ? row.avg.toFixed(2) : '',
+                    row.change || '',
+                    row.linkPrice ? row.linkPrice.toFixed(2) : ''
+                ]);
+            }
+            const guitieWs = XLSX.utils.aoa_to_sheet(guitieRowsExcel);
+            XLSX.utils.book_append_sheet(wb, guitieWs, '宁夏甘肃硅铁明细');
+        }
+        
+        // 导出文件
+        XLSX.writeFile(wb, `废钢价格汇总与明细_${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}.xlsx`);
+    }
+
+    // 监听 storage 事件（当另一个页面修改数据时实时更新）
+    window.addEventListener('storage', (e) => {
+        if (e.key === STORAGE_KEY) {
+            updateSummary();
+        }
+    });
+
+    // 绑定导出按钮
+    document.getElementById('exportExcelBtn').addEventListener('click', exportToExcel);
+
+    // 初始加载
+    updateSummary();
+</script>
+</body>
+</html>

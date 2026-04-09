@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>百川盈孚 · 废钢合金数据看板</title>
+    <!-- 引入 Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: system-ui, 'Segoe UI', 'Roboto', sans-serif;
+        }
+        body {
+            background: #f0f2f5;
+            margin: 0;
+            padding: 20px 16px;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .nav-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 12px 24px;
+            border-radius: 60px;
+            margin-bottom: 28px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            flex-wrap: wrap;
+        }
+        .nav-bar h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            color: #1e4663;
+        }
+        .nav-links {
+            display: flex;
+            gap: 12px;
+        }
+        .nav-btn, .back-btn {
+            background: #1e3a5f;
+            border: none;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 40px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            transition: 0.2s;
+        }
+        .back-btn {
+            background: #4a6f8f;
+        }
+        .nav-btn:hover, .back-btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(0.92);
+        }
+        .date-tabs-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            padding: 15px 20px;
+            margin-bottom: 20px;
+        }
+        .date-tabs {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .date-tabs label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #1e4663;
+        }
+        .date-select {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            background: white;
+            cursor: pointer;
+            min-width: 150px;
+        }
+        .quick-range {
+            display: flex;
+            gap: 8px;
+            margin-left: 12px;
+        }
+        .quick-btn {
+            background: #e9ecef;
+            border: none;
+            border-radius: 20px;
+            padding: 6px 14px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .quick-btn:hover {
+            background: #f5a623;
+            color: white;
+        }
+        .tabs-container {
+            margin-bottom: 48px;
+        }
+        .tab-buttons {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 20px;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .tab-btn:hover {
+            background: #e9ecef;
+            transform: translateY(-1px);
+        }
+        .tab-btn.active {
+            background: #f5a623;
+            color: white;
+            border-color: #f5a623;
+        }
+        .tab-content {
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+            padding: 20px;
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
+        }
+        .sheet-section {
+            background: transparent;
+            border-radius: 28px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .sheet-title {
+            font-size: 1.4rem;
+            font-weight: 600;
+            color: #1e4663;
+            border-left: 6px solid #f5a623;
+            padding-left: 14px;
+            margin: 0 0 15px 0;
+        }
+        .chart-container {
+            margin-bottom: 20px;
+            height: 250px;
+            position: relative;
+        }
+        canvas {
+            max-height: 250px;
+            width: 100%;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: 16px;
+            flex: 1;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+            min-width: 500px;
+        }
+        .data-table th {
+            background: #f1f5f9;
+            padding: 8px 4px;
+            border: 1px solid #cbd5e1;
+            font-weight: 600;
+            text-align: center;
+        }
+        .data-table td {
+            border: 1px solid #cbd5e1;
+            padding: 6px 3px;
+            text-align: center;
+            background: white;
+        }
+        .calc-cell {
+            background-color: #fef9e6;
+            font-weight: 500;
+            color: #2d3e50;
+        }
+        .hidden-in-page {
+            display: none;
+        }
+        .stat-row {
+            margin-top: 16px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+        }
+        .avg-stat, .latest-stat {
+            background: #eef2ff;
+            padding: 8px 14px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #1e3a5f;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .latest-stat {
+            background: #e6f7e6;
+        }
+        .avg-stat span, .latest-stat span {
+            font-weight: 700;
+            color: #2c6e2f;
+            font-size: 1rem;
+        }
+        .average-note {
+            margin-top: 12px;
+            background: #f8f9fc;
+            padding: 8px 12px;
+            border-radius: 16px;
+            font-size: 0.7rem;
+            color: #2c5282;
+            border-left: 3px solid #f5a623;
+        }
+        footer {
+            text-align: center;
+            margin-top: 20px;
+            color: #7f8c9a;
+            font-size: 0.75rem;
+        }
+        @media (max-width: 1000px) {
+            .tab-buttons { flex-direction: column; }
+            .tab-btn { width: 100%; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="nav-bar">
+        <h2>📊 废钢·合金全维看板</h2>
+        <div class="nav-links">
+            <a href="summary.html" class="back-btn">← 返回汇总表</a>
+        </div>
+    </div>
+
+    <!-- 日期范围选项卡（支持2022-2026） -->
+    <div class="date-tabs-container">
+        <div class="date-tabs">
+            <label>📅 开始日期：</label>
+            <select id="startDateSelect" class="date-select"></select>
+            <label>📅 结束日期：</label>
+            <select id="endDateSelect" class="date-select"></select>
+            <div class="quick-range">
+                <button class="quick-btn" data-range="7d">最近7天</button>
+                <button class="quick-btn" data-range="1m">最近1个月</button>
+                <button class="quick-btn" data-range="3m">最近3个月</button>
+                <button class="quick-btn" data-range="1y">最近1年</button>
+                <button class="quick-btn" data-range="all">全部</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6大品类选项卡 -->
+    <div class="tabs-container">
+        <div class="tab-buttons">
+            <button class="tab-btn active" data-tab="guanyu">🥫 罐子料</button>
+            <button class="tab-btn" data-tab="huitie">⚙️ 灰铁废铸件</button>
+            <button class="tab-btn" data-tab="chuxiu">🧹 除锈二级</button>
+            <button class="tab-btn" data-tab="punch">🔩 冲子料</button>
+            <button class="tab-btn" data-tab="simn">🧪 硅锰合金</button>
+            <button class="tab-btn" data-tab="sife">🔥 硅铁</button>
+        </div>
+        <div class="tab-content">
+            <!-- 罐子料 -->
+            <div id="guanyu" class="tab-pane active">
+                <div class="sheet-section">
+                    <div class="sheet-title">🥫 罐子料（加工）</div>
+                    <div class="chart-container"><canvas id="guanChart"></canvas></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>日期</th><th>北京6-8</th><th>广州6-8</th><th>广州重废</th><th>太原重废</th><th class="hidden-in-page">均价</th><th class="hidden-in-page">运费</th><th>涨跌</th><th>含税联动价</th></tr></thead><tbody id="guanTbody"></tbody></table></div>
+                    <div class="stat-row"><div class="avg-stat">📊 含税均价：<span id="guanAvgLink">--</span> 元/吨</div><div class="latest-stat">📌 最新含税价：<span id="guanLatestLink">--</span> 元/吨</div></div>
+                    <div class="average-note">✅ 均价 = 四地平均；运费 = 均价+200；涨跌 = 本日均价-上日均价；含税联动价 = 运费×1.13 - 150</div>
+                </div>
+            </div>
+            <!-- 灰铁废铸件 -->
+            <div id="huitie" class="tab-pane">
+                <div class="sheet-section">
+                    <div class="sheet-title">⚙️ 灰铁废铸件（普通）</div>
+                    <div class="chart-container"><canvas id="huiChart"></canvas></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>日期</th><th>北京重废</th><th>广州重废</th><th>太原重废</th><th class="hidden-in-page">均价</th><th>涨跌</th><th>联动价</th></tr></thead><tbody id="huiTbody"></tbody></table></div>
+                    <div class="stat-row"><div class="avg-stat">📊 含税均价：<span id="huiAvgLink">--</span> 元/吨</div><div class="latest-stat">📌 最新含税价：<span id="huiLatestLink">--</span> 元/吨</div></div>
+                    <div class="average-note">✅ 均价 = 三地平均；涨跌 = 本日均价-上日均价；联动价首行2616.333，后续累加涨跌。</div>
+                </div>
+            </div>
+            <!-- 除锈二级 -->
+            <div id="chuxiu" class="tab-pane">
+                <div class="sheet-section">
+                    <div class="sheet-title">🧹 除锈二级</div>
+                    <div class="chart-container"><canvas id="chuChart"></canvas></div>
+                    <div class="table-wrapper"><table class="data-table"><thead><tr><th>日期</th><th>太原重废</th><th>北京重废</th><th>石家庄重废</th><th class="hidden-in-page">平均价</th><th>涨跌</th><th>含税价</th></tr></thead><tbody id="chuTbody"></tbody></table></div>
+                    <div class="stat-row"><div class="avg-stat">📊 含税均价：<span id="chuAvgLink">--</span> 元/吨</div><div class="latest-stat">📌 最新含税价：<span id="chuLatestLink">--</span> 元/吨</div></div>
+                    <div class="average-note">✅ 平均价 = 三地平均；涨跌 = 本日平均-上日平均；联动价首行2362.333，后续累加涨跌。</div>
+                </div>
+            </div>
+
+            <!-- 冲子料（原聊城钢板料） -->
+            <div id="punch" class="tab-pane">
+                <div class="sheet-section">
+                    <div class="sheet-title">🔩 冲子料（聊城钢板料≥10mm）</div>
+                    <div class="chart-container"><canvas id="punchChart"></canvas></div>
+                    <div class="table-wrapper"><table class="data-table" id="tablePunch"><thead><tr><th>日期</th><th>钢板料(≥10mm)</th><th>涨跌</th><th>冲子料含税价(元/吨)</th></tr></thead><tbody id="punchTbody"></tbody></table></div>
+                    <div class="stat-row"><div class="avg-stat">📊 含税均价：<span id="punchAvgLink">--</span> 元/吨</div><div class="latest-stat">📌 最新含税价：<span id="punchLatestLink">--</span> 元/吨</div></div>
+                    <div class="average-note">📈 折线图展示冲子料含税价 + 平均线，日期筛选联动。</div>
+                </div>
+            </div>
+
+            <!-- 硅锰合金（原内蒙硅锰） -->
+            <div id="simn" class="tab-pane">
+                <div class="sheet-section">
+                    <div class="sheet-title">🧪 硅锰合金（6517）</div>
+                    <div class="chart-container"><canvas id="siMnChart"></canvas></div>
+                    <div class="table-wrapper"><table class="data-table" id="tableSiMn"><thead><tr><th>日期</th><th>内蒙硅锰(6517)</th><th>涨跌</th><th>含税价(元/吨)</th></tr></thead><tbody id="siMnTbody"></tbody></table></div>
+                    <div class="stat-row"><div class="avg-stat">📊 含税均价：<span id="siMnAvgLink">--</span> 元/吨</div><div class="latest-stat">📌 最新含税价：<span id="siMnLatestLink">--</span> 元/吨</div></div>
+                    <div class="average-note">📈 折线图展示硅锰合金含税价 + 平均线，日期筛选联动。</div>
+                </div>
+            </div>
+
+            <!-- 硅铁（原宁夏甘肃硅铁） -->
+            <div id="sife" class="tab-pane">
+                <div class="sheet-section">
+                    <div class="sheet-title">🔥 硅铁（72#/75#）</div>
+                    <div class="chart-container"><canvas id="siFeChart"></canvas></div>
+                    <div class="table-wrapper"><table class="data-table" id="tableSiFe"><thead><tr><th>日期</th><th>宁夏硅铁(72#)</th><th>甘肃硅铁(75#)</th><th>均价</th><th>涨跌</th><th>含税价(元/吨)</th></tr></thead><tbody id="siFeTbody"></tbody></table></div>
+                    <div class="stat-row"><div class="avg-stat">📊 含税均价：<span id="siFeAvgLink">--</span> 元/吨</div><div class="latest-stat">📌 最新含税价：<span id="siFeLatestLink">--</span> 元/吨</div></div>
+                    <div class="average-note">📈 折线图展示硅铁含税价 + 平均线，日期筛选联动。</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer>✏️ 前三个表格支持编辑联动，后三个图表展示合金/冲子料含税价走势，所有图表与日期选项卡实时联动（日期范围2022-2026）。</footer>
+</div>
+
+<script>
+    // ================= 1. 全局日期范围：2022-01-01 至 2026-12-31 =================
+    const FULL_START = new Date(2022, 0, 1);
+    const FULL_END = new Date(2026, 11, 31);
+    const allDates = [];
+    let curDate = new Date(FULL_START);
+    while (curDate <= FULL_END) {
+        const y = curDate.getFullYear(), m = String(curDate.getMonth()+1).padStart(2,'0'), d = String(curDate.getDate()).padStart(2,'0');
+        allDates.push(`${y}-${m}-${d}`);
+        curDate.setDate(curDate.getDate() + 1);
+    }
+
+    // ================= 2. 原始数据（冲子料、硅锰、硅铁） =================
+    // 冲子料数据 (原聊城钢板料)
+    const rawPunch = [
+        "2025-06-23,2290,0,2895", "2025-06-24,2290,0,2895", "2025-06-25,2290,0,2895", "2025-06-26,2290,0,2895",
+        "2025-06-27,2290,0,2895", "2025-06-28,2290,0,2895", "2025-06-29,2300,10,2905", "2025-06-30,2300,0,2905",
+        "2025-07-01,2300,0,2905", "2025-07-02,2300,0,2905", "2025-07-03,2300,0,2905", "2025-07-04,2310,10,2915",
+        "2025-07-05,2310,0,2915", "2025-07-06,2310,0,2915", "2025-07-07,2310,0,2915", "2025-07-08,2310,0,2915",
+        "2025-07-09,2310,0,2915", "2025-07-10,2310,0,2915", "2025-07-11,2320,10,2925", "2025-07-12,2320,0,2925",
+        "2025-07-13,2320,0,2925", "2025-07-14,2320,0,2925", "2025-07-15,2320,0,2925", "2025-07-16,2320,0,2925",
+        "2025-07-17,2320,0,2925", "2025-07-18,2320,0,2925", "2025-07-19,2330,10,2935", "2025-07-20,2330,0,2935",
+        "2025-07-21,2365,35,2970", "2025-07-22,2365,0,2970", "2025-07-23,2405,40,3010"
+    ];
+    let punchData = rawPunch.map(line => {
+        let [date, steel, chg, tax] = line.split(',');
+        return { date, steelPrice: parseInt(steel), change: parseInt(chg), taxPrice: parseInt(tax) };
+    }).sort((a,b)=>a.date.localeCompare(b.date));
+
+    // 硅锰合金数据
+    const rawSiMn = [
+        "2026-03-03,5750,50,5750", "2026-03-04,5750,0,5750", "2026-03-05,5850,100,5850", "2026-03-06,5850,0,5850",
+        "2026-03-07,5850,0,5850", "2026-03-08,5850,0,5850", "2026-03-09,5950,100,5950", "2026-03-10,5950,0,5950",
+        "2026-03-11,5950,0,5950", "2026-03-12,5850,-100,5850", "2026-03-13,5850,0,5850", "2026-03-14,5850,0,5850",
+        "2026-03-15,5850,0,5850", "2026-03-16,5850,0,5850", "2026-03-17,5850,0,5850", "2026-03-18,5900,50,5900",
+        "2026-03-19,5900,0,5900", "2026-03-20,6050,150,6050", "2026-03-21,6050,0,6050", "2026-03-22,6050,0,6050",
+        "2026-03-23,6150,100,6050", "2026-03-24,6150,100,6150", "2026-03-25,6150,0,6150", "2026-03-26,6150,0,6150",
+        "2026-03-27,6150,0,6150", "2026-03-28,6150,0,6150", "2026-03-29,6150,0,6150", "2026-03-30,6150,0,6150",
+        "2026-03-31,6250,100,6250"
+    ];
+    let siMnData = rawSiMn.map(line => {
+        let [date, price, chg, tax] = line.split(',');
+        return { date, mnPrice: parseInt(price), change: parseInt(chg), taxPrice: parseInt(tax) };
+    }).sort((a,b)=>a.date.localeCompare(b.date));
+
+    // 硅铁数据
+    const rawSiFe = [
+        "2026-02-08,5300,5800,5550,0,5550", "2026-02-09,5300,5800,5550,0,5550", "2026-02-10,5300,5800,5550,0,5550",
+        "2026-02-11,5300,5800,5550,0,5550", "2026-02-12,5300,5800,5550,0,5550", "2026-02-13,5300,5800,5550,0,5550",
+        "2026-02-14,5300,5800,5550,0,5550", "2026-02-15,5300,5800,5550,0,5550", "2026-02-16,5300,5800,5550,0,5550",
+        "2026-02-17,5300,5800,5550,0,5550", "2026-02-18,5300,5800,5550,0,5550", "2026-02-19,5300,5800,5550,0,5550",
+        "2026-02-20,5300,5800,5550,0,5550", "2026-02-21,5300,5800,5550,0,5550", "2026-02-22,5300,5800,5550,0,5550",
+        "2026-02-23,5300,5800,5550,0,5550", "2026-02-24,5250,5800,5525,-25,5525", "2026-02-25,5200,5800,5500,-25,5525",
+        "2026-02-26,5200,5800,5500,0,5500", "2026-02-27,5200,5800,5500,0,5500", "2026-02-28,5250,5900,5575,75,5575",
+        "2026-03-01,5250,5900,5575,0,5575", "2026-03-02,5300,5900,5600,25,5600", "2026-03-03,5350,5900,5625,25,5625",
+        "2026-03-04,5350,5900,5625,0,5625", "2026-03-05,5400,5950,5675,50,5675", "2026-03-06,5400,5950,5675,0,5675",
+        "2026-03-07,5400,5950,5675,0,5675", "2026-03-08,5400,5950,5675,0,5675", "2026-03-09,5450,5950,5700,25,5700",
+        "2026-03-10,5450,5950,5700,0,5700", "2026-03-11,5450,5950,5700,0,5700", "2026-03-12,5500,6000,5750,50,5750",
+        "2026-03-13,5550,6000,5775,25,5775", "2026-03-14,5550,6000,5775,0,5775"
+    ];
+    let siFeData = rawSiFe.map(line => {
+        let p = line.split(',');
+        return { date: p[0], ningxia: parseInt(p[1]), gansu: parseInt(p[2]), avgPrice: parseInt(p[3]), change: parseInt(p[4]), taxPrice: parseInt(p[5]) };
+    }).sort((a,b)=>a.date.localeCompare(b.date));
+
+    // ================= 3. 前三个品类（罐子料/灰铁/除锈）数据（沿用原有逻辑，日期范围2026-03-23至2026-04-22） =================
+    const legacyStart = new Date(2026, 2, 23), legacyEnd = new Date(2026, 3, 22);
+    const legacyDates = [];
+    let ld = new Date(legacyStart);
+    while(ld <= legacyEnd) {
+        let y=ld.getFullYear(), m=String(ld.getMonth()+1).padStart(2,'0'), d=String(ld.getDate()).padStart(2,'0');
+        legacyDates.push(`${y}-${m}-${d}`);
+        ld.setDate(ld.getDate()+1);
+    }
+    const guanKnown = { "2026-03-23":[2490,2320,2320,2370], "2026-03-24":[2490,2320,2320,2370], "2026-03-25":[2490,2320,2320,2370],
+        "2026-03-26":[2470,2320,2370,2370], "2026-03-27":[2495,2335,2335,2390], "2026-03-28":[2470,2320,2320,2370] };
+    const huiKnown = { "2026-03-23":[2490,2320,2370], "2026-03-24":[2490,2320,2370], "2026-03-25":[2490,2320,2370],
+        "2026-03-26":[2470,2320,2370], "2026-03-27":[2495,2335,2390], "2026-03-28":[2470,2320,2370] };
+    const chuKnown = { "2026-03-23":[2370,2490,2392], "2026-03-24":[2370,2490,2392], "2026-03-25":[2370,2490,2392],
+        "2026-03-26":[2370,2470,2383], "2026-03-27":[2390,2495,2405], "2026-03-28":[2370,2470,2383] };
+    let guanRows = [], huiRows = [], chuRows = [];
+    function buildLegacyRows() {
+        let g=[], h=[], c=[];
+        for(let date of legacyDates) {
+            let gk = guanKnown[date];
+            g.push({ date, bj: gk ? gk[0] : '', gz1: gk ? gk[1] : '', gz2: gk ? gk[2] : '', ty: gk ? gk[3] : '' });
+            let hk = huiKnown[date];
+            h.push({ date, bj: hk ? hk[0] : '', gz: hk ? hk[1] : '', ty: hk ? hk[2] : '' });
+            let ck = chuKnown[date];
+            c.push({ date, ty: ck ? ck[0] : '', bj: ck ? ck[1] : '', sjz: ck ? ck[2] : '' });
+        }
+        return { guanRows: g, huiRows: h, chuRows: c };
+    }
+    function computeGuanRowsFull(rows) {
+        for(let r of rows) if(r.bj!=='' && r.gz1!=='' && r.gz2!=='' && r.ty!==''){ let avg=(r.bj+r.gz1+r.gz2+r.ty)/4; let freight=avg+200; r.linkPrice=freight*1.13-150; r.avg=avg; r.freight=freight; } else { r.linkPrice=''; r.avg=''; r.freight=''; }
+        for(let i=0;i<rows.length-1;i++) if(rows[i].linkPrice!=='' && rows[i+1].linkPrice!=='') rows[i].change = rows[i+1].linkPrice - rows[i].linkPrice; else rows[i].change='';
+        return rows;
+    }
+    function computeHuiRowsFull(rows){ let lastLink=null, lastAvg=null; for(let r of rows){ if(r.bj!=='' && r.gz!=='' && r.ty!==''){ let avg=(r.bj+r.gz+r.ty)/3; let change=0, linkPrice=0; if(lastLink!==null){ change=avg-lastAvg; linkPrice=lastLink+change; } else { linkPrice=2616.333333; } r.avg=avg; r.change=change; r.linkPrice=linkPrice; lastLink=linkPrice; lastAvg=avg; } else { r.avg=''; r.change=''; r.linkPrice=''; } } return rows; }
+    function computeChuRowsFull(rows){ let lastLink=null, lastAvg=null; for(let r of rows){ if(r.ty!=='' && r.bj!=='' && r.sjz!==''){ let avg=(r.ty+r.bj+r.sjz)/3; let change=0, linkPrice=0; if(lastLink!==null){ change=avg-lastAvg; linkPrice=lastLink+change; } else { linkPrice=2362.333333; } r.avg=avg; r.change=change; r.linkPrice=linkPrice; lastLink=linkPrice; lastAvg=avg; } else { r.avg=''; r.change=''; r.linkPrice=''; } } return rows; }
+    function initLegacy() { let { guanRows:g, huiRows:h, chuRows:c } = buildLegacyRows(); guanRows=computeGuanRowsFull(g); huiRows=computeHuiRowsFull(h); chuRows=computeChuRowsFull(c); }
+    initLegacy();
+
+    // ================= 4. 工具函数 =================
+    function calcAverage(arr, field) { let sum=0,cnt=0; arr.forEach(item=>{ let v=item[field]; if(typeof v==='number' && !isNaN(v)){ sum+=v; cnt++; } }); return cnt? sum/cnt : null; }
+    function getLatest(arr, field) { for(let i=arr.length-1;i>=0;i--) if(typeof arr[i][field]==='number' && !isNaN(arr[i][field])) return arr[i][field]; return null; }
+    
+    // ================= 5. 渲染各品类 (支持日期范围) =================
+    function renderGuan(start, end) {
+        let filtered = guanRows.filter(r => r.date >= start && r.date <= end);
+        let tbody = document.getElementById('guanTbody'); tbody.innerHTML = '';
+        filtered.forEach(r => { let tr = document.createElement('tr'); tr.innerHTML = `<td>${r.date}</td><td>${r.bj||'—'}</td><td>${r.gz1||'—'}</td><td>${r.gz2||'—'}</td><td>${r.ty||'—'}</td><td class="calc-cell hidden-in-page">${r.avg!==''?Math.round(r.avg):'—'}</td><td class="calc-cell hidden-in-page">${r.freight!==''?Math.round(r.freight):'—'}</td><td class="calc-cell">${r.change!==''?(r.change>0?`+${Math.round(r.change)}`:Math.round(r.change)):'—'}</td><td class="calc-cell">${r.linkPrice!==''?Math.round(r.linkPrice):'—'}</td>`; tbody.appendChild(tr); });
+        let avgLink = calcAverage(filtered, 'linkPrice'); let latest = getLatest(filtered, 'linkPrice');
+        document.getElementById('guanAvgLink').innerText = avgLink ? Math.round(avgLink) : '—'; document.getElementById('guanLatestLink').innerText = latest ? Math.round(latest) : '—';
+        renderChart('guanChart', filtered, 'linkPrice', '罐子料含税联动价');
+    }
+    function renderHui(start,end) { let filtered = huiRows.filter(r => r.date >= start && r.date <= end); let tbody=document.getElementById('huiTbody'); tbody.innerHTML=''; filtered.forEach(r=>{ let tr=document.createElement('tr'); tr.innerHTML=`<td>${r.date}</td><td>${r.bj||'—'}</td><td>${r.gz||'—'}</td><td>${r.ty||'—'}</td><td class="calc-cell hidden-in-page">${r.avg!==''?Math.round(r.avg):'—'}</td><td class="calc-cell">${r.change!==''?(r.change>0?`+${Math.round(r.change)}`:Math.round(r.change)):'—'}</td><td class="calc-cell">${r.linkPrice!==''?Math.round(r.linkPrice):'—'}</td>`; tbody.appendChild(tr); }); let avg=calcAverage(filtered,'linkPrice'); let lat=getLatest(filtered,'linkPrice'); document.getElementById('huiAvgLink').innerText=avg?Math.round(avg):'—'; document.getElementById('huiLatestLink').innerText=lat?Math.round(lat):'—'; renderChart('huiChart', filtered, 'linkPrice', '灰铁联动价'); }
+    function renderChu(start,end) { let filtered = chuRows.filter(r => r.date >= start && r.date <= end); let tbody=document.getElementById('chuTbody'); tbody.innerHTML=''; filtered.forEach(r=>{ let tr=document.createElement('tr'); tr.innerHTML=`<td>${r.date}</td><td>${r.ty||'—'}</td><td>${r.bj||'—'}</td><td>${r.sjz||'—'}</td><td class="calc-cell hidden-in-page">${r.avg!==''?Math.round(r.avg):'—'}</td><td class="calc-cell">${r.change!==''?(r.change>0?`+${Math.round(r.change)}`:Math.round(r.change)):'—'}</td><td class="calc-cell">${r.linkPrice!==''?Math.round(r.linkPrice):'—'}</td>`; tbody.appendChild(tr); }); let avg=calcAverage(filtered,'linkPrice'); let lat=getLatest(filtered,'linkPrice'); document.getElementById('chuAvgLink').innerText=avg?Math.round(avg):'—'; document.getElementById('chuLatestLink').innerText=lat?Math.round(lat):'—'; renderChart('chuChart', filtered, 'linkPrice', '除锈二级含税价'); }
+    function renderPunch(start,end) { let filtered = punchData.filter(r => r.date >= start && r.date <= end); let tbody=document.getElementById('punchTbody'); tbody.innerHTML=''; filtered.forEach(r=>{ let tr=document.createElement('tr'); tr.innerHTML=`<td>${r.date}</td><td>${r.steelPrice}</td><td>${r.change>0?`+${r.change}`:r.change}</td><td class="calc-cell">${r.taxPrice}</td>`; tbody.appendChild(tr); }); let avg=calcAverage(filtered,'taxPrice'); let lat=getLatest(filtered,'taxPrice'); document.getElementById('punchAvgLink').innerText=avg?Math.round(avg):'—'; document.getElementById('punchLatestLink').innerText=lat?Math.round(lat):'—'; renderChart('punchChart', filtered, 'taxPrice', '冲子料含税价'); }
+    function renderSiMn(start,end) { let filtered = siMnData.filter(r => r.date >= start && r.date <= end); let tbody=document.getElementById('siMnTbody'); tbody.innerHTML=''; filtered.forEach(r=>{ let tr=document.createElement('tr'); tr.innerHTML=`<td>${r.date}</td><td>${r.mnPrice}</td><td>${r.change>0?`+${r.change}`:r.change}</td><td class="calc-cell">${r.taxPrice}</td>`; tbody.appendChild(tr); }); let avg=calcAverage(filtered,'taxPrice'); let lat=getLatest(filtered,'taxPrice'); document.getElementById('siMnAvgLink').innerText=avg?Math.round(avg):'—'; document.getElementById('siMnLatestLink').innerText=lat?Math.round(lat):'—'; renderChart('siMnChart', filtered, 'taxPrice', '硅锰合金含税价'); }
+    function renderSiFe(start,end) { let filtered = siFeData.filter(r => r.date >= start && r.date <= end); let tbody=document.getElementById('siFeTbody'); tbody.innerHTML=''; filtered.forEach(r=>{ let tr=document.createElement('tr'); tr.innerHTML=`<td>${r.date}</td><td>${r.ningxia}</td><td>${r.gansu}</td><td>${r.avgPrice}</td><td>${r.change>0?`+${r.change}`:r.change}</td><td class="calc-cell">${r.taxPrice}</td>`; tbody.appendChild(tr); }); let avg=calcAverage(filtered,'taxPrice'); let lat=getLatest(filtered,'taxPrice'); document.getElementById('siFeAvgLink').innerText=avg?Math.round(avg):'—'; document.getElementById('siFeLatestLink').innerText=lat?Math.round(lat):'—'; renderChart('siFeChart', filtered, 'taxPrice', '硅铁含税价'); }
+    // 通用图表渲染
+    let chartInstances = {};
+    function renderChart(canvasId, dataRows, field, label) {
+        let ctx = document.getElementById(canvasId).getContext('2d');
+        if(chartInstances[canvasId]) chartInstances[canvasId].destroy();
+        let valid = dataRows.filter(r => typeof r[field] === 'number' && !isNaN(r[field]));
+        if(valid.length === 0) { chartInstances[canvasId] = new Chart(ctx, { type:'line', data:{ labels:[], datasets:[] } }); return; }
+        let labels = valid.map(r => r.date.slice(5));
+        let values = valid.map(r => r[field]);
+        let avg = calcAverage(valid, field);
+        let datasets = [{ label: label, data: values, borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,0.1)', tension: 0.2, fill: false, pointRadius: 3 }];
+        if(avg !== null) datasets.push({ label: `均价 ${Math.round(avg)}元/吨`, data: Array(labels.length).fill(avg), borderColor: '#ef4444', borderDash: [5,5], pointRadius: 0, fill: false });
+        chartInstances[canvasId] = new Chart(ctx, { type: 'line', data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: true, plugins: { tooltip: { mode: 'index' }, legend: { position: 'top' } }, scales: { y: { title: { display: true, text: '价格 (元/吨)' } } } } });
+    }
+
+    // ================= 6. 日期选择器逻辑（2022-2026全范围） =================
+    function populateDateSelects() {
+        let startSel = document.getElementById('startDateSelect'), endSel = document.getElementById('endDateSelect');
+        startSel.innerHTML = ''; endSel.innerHTML = '';
+        allDates.forEach(d => { let opt1 = document.createElement('option'); opt1.value = d; opt1.textContent = d; startSel.appendChild(opt1); let opt2 = document.createElement('option'); opt2.value = d; opt2.textContent = d; endSel.appendChild(opt2); });
+        // 默认最近一个月（以当前日期2026-04-01为基准，但数据截止2026-03-31，所以取2026-03-01至2026-03-31）
+        let endDefault = "2026-03-31";
+        let startDefault = "2026-03-01";
+        if(allDates.includes(startDefault)) startSel.value = startDefault; else startSel.value = allDates[0];
+        if(allDates.includes(endDefault)) endSel.value = endDefault; else endSel.value = allDates[allDates.length-1];
+    }
+    function applyDateRange() {
+        let start = document.getElementById('startDateSelect').value;
+        let end = document.getElementById('endDateSelect').value;
+        if(start > end) { alert('开始日期不能晚于结束日期'); return; }
+        renderGuan(start,end); renderHui(start,end); renderChu(start,end);
+        renderPunch(start,end); renderSiMn(start,end); renderSiFe(start,end);
+    }
+    function setQuickRange(type) {
+        let end = new Date(); end.setHours(0,0,0,0);
+        let start = new Date(end);
+        switch(type) {
+            case '7d': start.setDate(end.getDate() - 6); break;
+            case '1m': start.setMonth(end.getMonth() - 1); break;
+            case '3m': start.setMonth(end.getMonth() - 3); break;
+            case '1y': start.setFullYear(end.getFullYear() - 1); break;
+            case 'all': start = new Date(FULL_START); end = new Date(FULL_END); break;
+            default: return;
+        }
+        let startStr = start.toISOString().slice(0,10), endStr = end.toISOString().slice(0,10);
+        if(startStr < "2022-01-01") startStr = "2022-01-01";
+        if(endStr > "2026-12-31") endStr = "2026-12-31";
+        let startSel = document.getElementById('startDateSelect'), endSel = document.getElementById('endDateSelect');
+        if(allDates.includes(startStr)) startSel.value = startStr;
+        if(allDates.includes(endStr)) endSel.value = endStr;
+        applyDateRange();
+    }
+
+    // ================= 7. 选项卡切换 =================
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            let id = btn.getAttribute('data-tab');
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            document.getElementById(id).classList.add('active');
+        });
+    });
+    document.querySelectorAll('.quick-btn').forEach(btn => {
+        btn.addEventListener('click', () => setQuickRange(btn.getAttribute('data-range')));
+    });
+    populateDateSelects();
+    applyDateRange();
+</script>
+</body>
+</html>
