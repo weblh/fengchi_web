@@ -9,8 +9,9 @@ import {
   DollarOutlined,
   UserOutlined
 } from '@ant-design/icons';
-import { Outlet, useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Routes, Route } from 'react-router-dom';
 import request from '../utils/request';
+import ManageSystemRoutes from './routes';
 
 const { Sider, Content, Header } = Layout;
 
@@ -204,18 +205,7 @@ const ManageSystem: React.FC = () => {
   };
 
   // 根据图标名称获取图标组件
-  const getIconByName = async (iconName: string) => {
-    // 导入所有可能用到的图标
-    const { 
-      SettingOutlined, 
-      UserOutlined, 
-      DashboardOutlined, 
-      ShoppingOutlined, 
-      ShoppingCartOutlined, 
-      DollarOutlined,
-      TeamOutlined
-    } = await import('@ant-design/icons');
-
+  const getIconByName = (iconName: string) => {
     // 图标映射
     const iconMap: Record<string, React.ReactNode> = {
       SettingOutlined: <SettingOutlined />,
@@ -241,6 +231,7 @@ const ManageSystem: React.FC = () => {
       // 清除本地缓存
       localStorage.removeItem('token');
       localStorage.removeItem('userRoutes');
+      localStorage.removeItem('currentUser');
       // 跳转到登录页面
       navigate('/login');
     } catch (error) {
@@ -286,7 +277,7 @@ const ManageSystem: React.FC = () => {
               <span>加载中...</span>
             </div>
           ) : (
-            <Outlet />
+            <ManageSystemRoutes />
           )}
         </Content>
       </Layout>

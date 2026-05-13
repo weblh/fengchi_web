@@ -1,0 +1,2533 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN" class="view-level1-active">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>风控面板 - 钢铁原料价格监控 | 山西临汾</title>
+    <style>
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f4f6f9;
+            --bg-card: #ffffff;
+            --bg-table-header: #eef1f5;
+            --bg-table-row: #ffffff;
+            --bg-table-row-alt: #f7f9fc;
+            --bg-hover: #e8edf3;
+            --border-color: #d8dee8;
+            --border-accent: #b0bec9;
+            --text-primary: #1e293b;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --text-bright: #0f172a;
+            --accent-blue: #2563eb;
+            --accent-cyan: #0d9488;
+            --accent-green: #059669;
+            --accent-red: #dc2626;
+            --accent-orange: #ea580c;
+            --accent-yellow: #ca8a04;
+            --accent-amber: #d97706;
+            --accent-purple: #7c3aed;
+            --badge-up: #059669;
+            --badge-down: #dc2626;
+            --badge-stable: #64748b;
+            --badge-up-bg: rgba(5, 150, 105, 0.1);
+            --badge-down-bg: rgba(220, 38, 38, 0.08);
+            --badge-stable-bg: rgba(100, 116, 139, 0.1);
+            --glow-green: rgba(5, 150, 105, 0.35);
+            --glow-red: rgba(220, 38, 38, 0.3);
+            --glow-blue: rgba(37, 99, 235, 0.2);
+            --shadow-card: 0 4px 20px rgba(15, 23, 42, 0.08), 0 1px 3px rgba(15, 23, 42, 0.06);
+            --shadow-sm: 0 1px 4px rgba(15, 23, 42, 0.08);
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+            --radius-xs: 6px;
+            --font-mono: 'SF Mono', 'Cascadia Code', 'JetBrains Mono', 'Fira Code', 'Consolas', 'Menlo', monospace;
+            --font-sans: 'Inter', 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+            --transition-fast: 0.18s ease;
+            --transition-normal: 0.25s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            line-height: 1.6;
+            height: auto;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            background-image: none;
+            touch-action: none;
+            -webkit-overflow-scrolling: auto;
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            border-bottom: 1px solid var(--border-color);
+            padding: 20px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 1px 12px rgba(15, 23, 42, 0.06);
+        }
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, #e0e7ff, #dbeafe);
+            border: 1.5px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+            box-shadow: 0 1px 8px rgba(37, 99, 235, 0.1);
+        }
+        .header-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: var(--text-bright);
+            white-space: nowrap;
+        }
+        .header-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 400;
+            letter-spacing: 0.03em;
+        }
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+        .live-dot {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--accent-green);
+            box-shadow: 0 0 10px var(--glow-green);
+            animation: pulse-dot 2s ease-in-out infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+        @keyframes pulse-dot {
+            0%,
+            100% {
+                box-shadow: 0 0 6px var(--glow-green);
+            }
+            50% {
+                box-shadow: 0 0 18px var(--glow-green), 0 0 28px rgba(5, 150, 105, 0.2);
+            }
+        }
+        .update-badge {
+            font-size: 0.78rem;
+            color: #0f766e;
+            background: rgba(13, 148, 136, 0.1);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(13, 148, 136, 0.25);
+            white-space: nowrap;
+            font-weight: 500;
+        }
+        .update-badge.warning {
+            color: #b45309;
+            background: rgba(245, 158, 11, 0.12);
+            border-color: rgba(217, 119, 6, 0.3);
+        }
+        .date-stamp {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            font-family: var(--font-mono);
+            letter-spacing: 0.02em;
+        }
+
+        /* ========== MAIN CONTAINER ========== */
+        .main-container {
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* ========== SECTION ========== */
+        .section {
+            margin-bottom: 0;
+        }
+        .section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .section-title {
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 0.02em;
+        }
+        .section-title .icon-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        .icon-dot.supply {
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px rgba(13, 148, 136, 0.35);
+        }
+        .icon-dot.iron {
+            background: var(--accent-orange);
+            box-shadow: 0 0 8px rgba(234, 88, 12, 0.3);
+        }
+        .icon-dot.steel {
+            background: var(--accent-blue);
+            box-shadow: 0 0 8px rgba(37, 99, 235, 0.3);
+        }
+        .section-badge {
+            font-size: 0.7rem;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 500;
+            letter-spacing: 0.03em;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+        }
+
+        /* ========== LEVEL 1 BOARD（一级看板） ========== */
+        .level1-board {
+            margin-bottom: 0;
+            padding: 0;
+            background: #ffffff;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
+            min-height: 100vh;
+            display: block;
+        }
+        .level1-board-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+            gap: 20px;
+            margin-bottom: 0;
+            padding: 15px 25px;
+            background: #ffffff;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .level1-board .table-wrapper.level1-scroll {
+            overflow-y: auto;
+            overflow-x: auto;
+            max-height: calc(100vh - 80px);
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            min-width: 1000px;
+        }
+        table thead th {
+            background: var(--bg-table-header);
+            color: var(--text-muted);
+            font-weight: 700;
+            font-size: 0.72rem;
+            padding: 12px 14px;
+            text-align: left;
+            border-bottom: 2px solid var(--border-accent);
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .group-header-row {
+            background: #f1f5f9 !important;
+            pointer-events: none;
+        }
+        .group-header-row td {
+            font-weight: 800;
+            color: var(--accent-blue);
+            font-size: 0.9rem !important;
+            padding: 10px 15px !important;
+            border-bottom: 2px solid var(--border-color);
+        }
+        /* 一级看板：非本组最新「数据日期」的行由脚本打上此类隐藏 */
+        tr.level1-date-filtered-out {
+            display: none !important;
+        }
+        table tbody td {
+            padding: 10px 14px;
+            font-size: 0.85rem;
+        }
+        .header-title {
+            font-size: 1.35rem;
+            font-weight: 800;
+        }
+        .header-subtitle {
+            font-size: 0.8rem;
+        }
+        .update-badge {
+            font-size: 0.75rem;
+            padding: 6px 12px;
+        }
+        .date-stamp {
+            font-size: 0.75rem;
+        }
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            font-size: 20px;
+        }
+        .dash-change-tag {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 0.7rem;
+            font-family: var(--font-mono);
+            white-space: nowrap;
+        }
+        .dash-change-tag.unknown {
+            color: var(--text-muted);
+            background: var(--bg-secondary);
+            border: 1px dashed var(--border-accent);
+        }
+        .dash-change-tag.up {
+            color: var(--badge-up);
+            background: var(--badge-up-bg);
+            border: 1px solid rgba(5, 150, 105, 0.25);
+        }
+        .dash-change-tag.down {
+            color: var(--badge-down);
+            background: var(--badge-down-bg);
+            border: 1px solid rgba(220, 38, 38, 0.22);
+        }
+        .dash-change-tag.stable {
+            color: var(--badge-stable);
+            background: var(--badge-stable-bg);
+            border: 1px solid rgba(100, 116, 139, 0.2);
+        }
+        .dash-change-tag.flat {
+            color: #64748b;
+            background: rgba(148, 163, 184, 0.12);
+            border: 1px solid rgba(148, 163, 184, 0.25);
+        }
+
+        /* 一级表格行：点击跳转二级 */
+        .level1-board tbody tr.level1-jump-row {
+            cursor: pointer;
+            transition: background var(--transition-fast);
+        }
+        .level1-board tbody tr.level1-jump-row:hover {
+            background: rgba(37, 99, 235, 0.06) !important;
+        }
+        .level1-board-note code {
+            font-family: var(--font-mono);
+            background: var(--bg-secondary);
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+
+        /* ========== 二级独立页面区（与一级不同容器） ========== */
+        .level2-root {
+            background: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+            touch-action: auto;
+            /* 避免 overflow 非 visible 导致子级 position:sticky 失效；横向由 body 约束 */
+            overflow-x: visible;
+            overflow-y: visible;
+            min-height: 100vh;
+            height: auto;
+        }
+        .level2-root .main-container {
+            padding-top: 28px;
+            padding-bottom: 32px;
+            overflow: visible;
+        }
+
+        /* ========== 一级 / 二级整页切换（默认只见一级） ========== */
+        .app-page {
+            display: none;
+            height: 100%;
+            width: 100%;
+        }
+        .app-page--active {
+            display: block;
+            height: 100%;
+            width: 100%;
+        }
+
+        /* 一级看板：禁止整页滚动，仅表格区域滚动 */
+        html.view-level1-active {
+            height: 100vh;
+            overflow: hidden;
+        }
+        html.view-level1-active body {
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+            touch-action: manipulation;
+        }
+        html.view-level1-active #page-level1.app-page--active {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            max-height: 100vh;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        html.view-level1-active #page-level1 .main-container {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 0;
+        }
+        html.view-level1-active .level1-board {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 0;
+        }
+        html.view-level1-active .level1-board-top {
+            flex-shrink: 0;
+        }
+        html.view-level1-active .level1-board .table-container {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        html.view-level1-active .level1-board .table-wrapper.level1-scroll {
+            flex: 1;
+            min-height: 0;
+            max-height: none;
+            overflow-x: auto;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            touch-action: pan-x pan-y;
+        }
+
+        .btn-back-level1 {
+            flex-shrink: 0;
+            padding: 8px 14px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            color: var(--text-bright);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }
+        .btn-back-level1:hover {
+            border-color: var(--accent-blue);
+            background: rgba(37, 99, 235, 0.08);
+        }
+
+        /* ========== LEVEL 2 BOARD（二级看板 · 与一级表格分区） ========== */
+        .level2-board {
+            margin-top: 0;
+            padding: 20px 22px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+        }
+        .level2-board-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+        .level2-board-header-actions {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .level2-board-title {
+            font-size: 1.05rem;
+            font-weight: 800;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            letter-spacing: 0.02em;
+        }
+        .level2-board-title .icon-dot.l2 {
+            width: 11px;
+            height: 11px;
+            border-radius: 4px;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-orange));
+            box-shadow: 0 0 10px rgba(13, 148, 136, 0.22);
+        }
+        .level2-board-note {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            max-width: 480px;
+            line-height: 1.5;
+        }
+
+        /* 二级顶栏：返回 + 标题 + 主板块标签，随页面上滚时吸附在视口顶部 */
+        #page-level2 .level2-sticky-top {
+            position: sticky;
+            top: 0;
+            z-index: 70;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-color);
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        }
+        #page-level2 .level2-sticky-top .level2-board-header {
+            margin-bottom: 12px;
+        }
+        #page-level2 .level2-sticky-top .main-tab-strip {
+            margin-bottom: 0;
+        }
+
+        /* ========== DASHBOARD TABS ========== */
+        .dashboard-tabbed {
+            margin-bottom: 8px;
+            overflow: hidden;
+        }
+        .main-tab-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 4px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+        }
+        .main-tab-btn {
+            flex: 1 1 200px;
+            min-height: 44px;
+            padding: 10px 16px;
+            font-size: 0.88rem;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            color: var(--text-secondary);
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            text-align: center;
+            letter-spacing: 0.02em;
+        }
+        .main-tab-btn:hover {
+            color: var(--text-bright);
+            background: var(--bg-hover);
+        }
+        .main-tab-btn.active {
+            color: var(--text-bright);
+            background: var(--bg-card);
+            border-color: var(--border-accent);
+            box-shadow: var(--shadow-sm);
+        }
+        .main-tab-panel {
+            display: none;
+            animation: tab-fade 0.22s ease;
+        }
+        .main-tab-panel.active {
+            display: block;
+        }
+        @keyframes tab-fade {
+            from { opacity: 0.35; }
+            to { opacity: 1; }
+        }
+        .sub-tab-strip {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .sub-tab-btn {
+            padding: 8px 16px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all var(--transition-fast);
+            font-family: var(--font-sans);
+        }
+        .sub-tab-btn:hover {
+            border-color: var(--border-accent);
+            color: var(--text-bright);
+        }
+        .sub-tab-btn.active {
+            color: var(--text-bright);
+            background: rgba(37, 99, 235, 0.1);
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+        }
+        .sub-tab-panel {
+            display: none;
+        }
+        .sub-tab-panel.active {
+            display: block;
+        }
+        .l2-sub-chart-wrap {
+            margin-bottom: 14px;
+            padding: 12px 14px 8px;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+        }
+        .l2-sub-chart-title {
+            font-size: 0.78rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            letter-spacing: 0.02em;
+        }
+        .l2-mill-chart-filter {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .l2-mill-chart-filter-label {
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            flex-shrink: 0;
+        }
+        .l2-mill-chart-material {
+            flex: 1 1 200px;
+            min-width: 160px;
+            max-width: 100%;
+            padding: 8px 12px;
+            font-size: 0.82rem;
+            font-weight: 600;
+            font-family: var(--font-sans);
+            color: var(--text-bright);
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-sm);
+            cursor: pointer;
+        }
+        .l2-mill-chart-material:focus {
+            outline: none;
+            border-color: var(--accent-blue);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
+        .l2-sub-chart-canvas-h {
+            position: relative;
+            height: 220px;
+            width: 100%;
+        }
+        .l2-sub-chart-canvas-h canvas {
+            max-width: 100%;
+        }
+        .panel-footnote {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        .panel-footnote span {
+            font-size: 0.73rem;
+            color: var(--text-muted);
+            background: var(--bg-card);
+            padding: 6px 12px;
+            border-radius: 16px;
+            border: 1px solid var(--border-color);
+        }
+
+        /* ========== TABLE CONTAINER ========== */
+        .table-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+            transition: all var(--transition-normal);
+        }
+        .table-container:hover {
+            box-shadow: var(--shadow-card);
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 520px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border-accent) transparent;
+            touch-action: none;
+            -webkit-overflow-scrolling: auto;
+        }
+        .table-wrapper::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        .table-wrapper::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background: var(--border-accent);
+            border-radius: 10px;
+        }
+        /* 二级整页：表格区不内嵌滚动，随浏览器整页滚动 */
+        #page-level2 .table-wrapper {
+            overflow-x: visible;
+            overflow-y: visible;
+            max-height: none;
+            touch-action: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+            min-width: 700px;
+        }
+        table thead th {
+            background: var(--bg-table-header);
+            color: var(--text-muted);
+            font-weight: 600;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 13px 14px;
+            text-align: left;
+            border-bottom: 2px solid var(--border-accent);
+            white-space: nowrap;
+            position: sticky;
+            top: 0;
+            z-index: 5;
+        }
+        table tbody td {
+            padding: 11px 14px;
+            border-bottom: 1px solid var(--border-color);
+            white-space: nowrap;
+            transition: background var(--transition-fast);
+        }
+        table tbody tr {
+            transition: all var(--transition-fast);
+        }
+        table tbody tr:hover {
+            background: var(--bg-hover);
+        }
+        table tbody tr:nth-child(even) {
+            background: var(--bg-table-row-alt);
+        }
+        table tbody tr:nth-child(even):hover {
+            background: var(--bg-hover);
+        }
+        table tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* 高亮行 */
+        tr.row-highlight {
+            border-left: 3px solid var(--accent-amber);
+            background: rgba(251, 146, 60, 0.06) !important;
+        }
+        tr.row-highlight td:first-child {
+            padding-left: 11px;
+        }
+        tr.row-highlight:hover {
+            background: rgba(251, 146, 60, 0.12) !important;
+        }
+
+        /* 从一级跳转后短暂高亮二级表格行 */
+        tr.row-jump-flash {
+            animation: row-jump-flash 2.2s ease-out 1;
+            outline: 2px solid var(--accent-blue);
+            outline-offset: -2px;
+        }
+        @keyframes row-jump-flash {
+            0% { background: rgba(37, 99, 235, 0.18) !important; }
+            40% { background: rgba(37, 99, 235, 0.1) !important; }
+            100% { background: transparent; }
+        }
+
+        /* 价格单元格 */
+        .price-cell {
+            font-family: var(--font-mono);
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+        .price-range {
+            color: var(--text-bright);
+        }
+        .price-single {
+            color: var(--accent-amber);
+            font-size: 1.05em;
+        }
+        .avg-price {
+            color: var(--accent-cyan);
+            font-weight: 700;
+        }
+
+        /* 涨跌徽章 */
+        .change-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            padding: 4px 10px;
+            border-radius: 14px;
+            font-weight: 600;
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+            letter-spacing: 0.01em;
+        }
+        .change-badge.up {
+            color: var(--badge-up);
+            background: var(--badge-up-bg);
+            border: 1px solid rgba(5, 150, 105, 0.28);
+            animation: subtle-glow-green 3s ease-in-out infinite;
+        }
+        @keyframes subtle-glow-green {
+            0%,
+            100% {
+                box-shadow: 0 0 0 rgba(5, 150, 105, 0);
+            }
+            50% {
+                box-shadow: 0 0 10px rgba(5, 150, 105, 0.22);
+            }
+        }
+        .change-badge.stable {
+            color: #94a3b8;
+            background: rgba(148, 163, 184, 0.1);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+        .change-badge.flat {
+            color: #94a3b8;
+            background: rgba(148, 163, 184, 0.08);
+            border: 1px solid rgba(148, 163, 184, 0.15);
+        }
+
+        /* 地区标签 */
+        .region-tag {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.78rem;
+            letter-spacing: 0.02em;
+        }
+        .region-tag.linfen {
+            background: rgba(251, 146, 60, 0.15);
+            color: var(--accent-orange);
+            border: 1px solid rgba(251, 146, 60, 0.3);
+        }
+        .region-tag.handan {
+            background: rgba(37, 99, 235, 0.1);
+            color: var(--accent-blue);
+            border: 1px solid rgba(37, 99, 235, 0.22);
+        }
+        .region-tag.xingtai {
+            background: rgba(124, 58, 237, 0.1);
+            color: var(--accent-purple);
+            border: 1px solid rgba(124, 58, 237, 0.22);
+        }
+        .region-tag.liaocheng {
+            background: rgba(13, 148, 136, 0.1);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(13, 148, 136, 0.22);
+        }
+
+        /* 钢厂标签 */
+        .mill-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 0.76rem;
+            letter-spacing: 0.02em;
+        }
+        .mill-tag.jianbang {
+            background: rgba(37, 99, 235, 0.08);
+            color: #1d4ed8;
+            border: 1px solid rgba(37, 99, 235, 0.2);
+        }
+        .mill-tag.liheng {
+            background: rgba(124, 58, 237, 0.08);
+            color: #6d28d9;
+            border: 1px solid rgba(124, 58, 237, 0.2);
+        }
+        .mill-tag.shougang {
+            background: rgba(234, 88, 12, 0.1);
+            color: #c2410c;
+            border: 1px solid rgba(234, 88, 12, 0.22);
+        }
+
+        /* ========== FOOTER NOTE ========== */
+        .footer-note {
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            margin-top: 32px;
+            padding: 16px;
+            border-top: 1px solid var(--border-color);
+            letter-spacing: 0.02em;
+            opacity: 0.88;
+        }
+        .footer-note span {
+            color: var(--accent-amber);
+        }
+
+        /* ========== TOOLTIP / POPOVER ========== */
+        .info-pop {
+            cursor: help;
+            border-bottom: 1px dashed var(--text-muted);
+            transition: color var(--transition-fast);
+        }
+        .info-pop:hover {
+            color: var(--accent-cyan);
+            border-bottom-color: var(--accent-cyan);
+        }
+
+        /* ========== RESPONSIVE ========== */
+        @media (max-width: 900px) {
+            .header {
+                padding: 14px 16px;
+            }
+            .header-title {
+                font-size: 1.1rem;
+            }
+            .main-container {
+                padding: 16px 12px 28px;
+            }
+            .level1-board {
+                padding: 14px 14px;
+            }
+            .level1-board-top {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .level1-board-note {
+                max-width: none;
+            }
+            .level2-root .main-container {
+                padding-top: 20px;
+            }
+            .level2-board {
+                padding: 14px 12px;
+            }
+            .main-tab-btn {
+                font-size: 0.8rem;
+                padding: 8px 12px;
+            }
+            table {
+                font-size: 0.76rem;
+                min-width: 580px;
+            }
+            table thead th,
+            table tbody td {
+                padding: 8px 10px;
+            }
+            .section-title {
+                font-size: 0.9rem;
+            }
+        }
+        @media (max-width: 500px) {
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .header-right {
+                width: 100%;
+                justify-content: flex-start;
+            }
+            .sub-tab-btn {
+                font-size: 0.75rem;
+                padding: 6px 12px;
+            }
+            .table-wrapper {
+                max-height: 380px;
+            }
+            html.view-level1-active .level1-board .table-wrapper.level1-scroll {
+                max-height: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div id="page-level1" class="app-page app-page--active">
+    <div class="main-container">
+
+        <!-- ========== 一级看板：合并为单张表格 ========== -->
+        <section class="level1-board" aria-label="一级看板">
+            <div class="level1-board-top">
+                <div class="header-left">
+                    <div class="logo-icon">🛡️</div>
+                    <div>
+                        <div class="header-title">钢铁原料风控面板</div>
+                        <div class="header-subtitle">山西临汾 · 供应料型 & 生铁 & 钢厂挂牌价监控</div>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <span class="update-badge"><span class="live-dot"></span>实时监控中</span>
+                    <span class="update-badge warning">⏱ 临汾高锰压块数据更新于05-06</span>
+                    <span class="date-stamp">📅 报告生成：2026-05-07</span>
+                </div>
+            </div>
+            <div class="table-container">
+                <div class="table-wrapper level1-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>类别 / 钢厂</th>
+                                <th>品名 / 料型</th>
+                                <th>地区</th>
+                                <th>规格</th>
+                                <th>价格 (元/吨)</th>
+                                <th>涨跌</th>
+                                <th>数据日期</th>
+                            </tr>
+                        </thead>
+                        <tbody id="level1-merged-tbody">
+                            <!-- 分组标题 1 -->
+                            <tr class="group-header-row">
+                                <td colspan="7">周边地区大型钢厂挂牌价（立恒 · 建邦 · 首钢长治）</td>
+                            </tr>
+                            <!-- 钢厂挂牌数据 -->
+                            <tr class="mill-row level1-jump-row" data-last="2340" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="钢筋头" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>钢筋头</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,360</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2350" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="优质废钢" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>优质废钢</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,320</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2320" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="道轨" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>道轨</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,320</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2300" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="冲子料" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>冲子料</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,300</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2300" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="废钢" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>废钢</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,300</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2290" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="钢筋压块" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>钢筋压块</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,290</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2270" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="缸体" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>缸体</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,270</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2270" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="马蹄铁" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>马蹄铁</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,270</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2250" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="马蹄佚" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>马蹄佚</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,250</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2240" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="一级废钢压块" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>一级废钢压块</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,240</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2240" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="轮毂" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>轮毂</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,240</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2230" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="边角料" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>边角料</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,230</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2220" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="废钢新料" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>废钢新料</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,220</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2190" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="破碎料" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>破碎料</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,190</td>
+                                <td class="mill-delta"></td>
+                                <td>05-05</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2170" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="铸件" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>铸件</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,170</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2160" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="钢屑压块" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>钢屑压块</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,160</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2010" data-jump-main="panel-steel" data-jump-sub="mill-liheng" data-jump-key="二级废钢压块" title="点击查看二级明细">
+                                <td><span class="mill-tag liheng">山西立恒</span></td>
+                                <td>二级废钢压块</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,010</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2290" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="特级(15)" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>特级(15)</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,310</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2270" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="重一(10)" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>重一(10)</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,270</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2240" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="重二(6-8-10)" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>重二(6-8-10)</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,240</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2200" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="重三(4-6)" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>重三(4-6)</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,200</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2160" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="剪切料一级≥3mm" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>剪切料一级≥3mm</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,160</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2130" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="破碎料一级＞2mm" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>破碎料一级＞2mm</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,130</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2120" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="剪切料二级≥2mm" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>剪切料二级≥2mm</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,120</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2020" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="剪切料三级≥1mm" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>剪切料三级≥1mm</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,020</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2010" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="破碎料二级1-2mm" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>破碎料二级1-2mm</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,010</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="1930" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="破碎料三级＜1mm" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>破碎料三级＜1mm</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">1,930</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="1800" data-jump-main="panel-steel" data-jump-sub="mill-jianbang" data-jump-key="剪切料四级≤1mm" title="点击查看二级明细">
+                                <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                <td>剪切料四级≤1mm</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">1,800</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2680" data-jump-main="panel-steel" data-jump-sub="mill-shougang" data-jump-key="重优" title="点击查看二级明细">
+                                <td><span class="mill-tag shougang">首钢长治钢铁</span></td>
+                                <td>重优</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,670</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2630" data-jump-main="panel-steel" data-jump-sub="mill-shougang" data-jump-key="中型一级" title="点击查看二级明细">
+                                <td><span class="mill-tag shougang">首钢长治钢铁</span></td>
+                                <td>中型一级</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,630</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="mill-row level1-jump-row" data-last="2600" data-jump-main="panel-steel" data-jump-sub="mill-shougang" data-jump-key="中型二级" title="点击查看二级明细">
+                                <td><span class="mill-tag shougang">首钢长治钢铁</span></td>
+                                <td>中型二级</td>
+                                <td>山西</td>
+                                <td>—</td>
+                                <td class="price-cell pnum mill-cur">2,600</td>
+                                <td class="mill-delta"></td>
+                                <td>05-06</td>
+                            </tr>
+                            
+                            <!-- 分组标题 2 -->
+                            <tr class="group-header-row">
+                                <td colspan="7">供应市场分析 · 临汾生铁价格（邯郸 · 邢台 · 聊城 · 临汾）</td>
+                            </tr>
+                            <!-- 其他料型数据 -->
+                            <tr class="level1-jump-row" data-jump-main="panel-supply" data-jump-sub="supply-zhongmeng" data-jump-key="钢板料" title="点击查看二级明细">
+                                <td>供应料型</td>
+                                <td>钢板料</td>
+                                <td><span class="region-tag handan">邯郸</span></td>
+                                <td>≥10mm · 均价</td>
+                                <td class="price-cell pnum">2,155</td>
+                                <td><span class="dash-change-tag stable">稳</span></td>
+                                <td>05-07</td>
+                            </tr>
+                            <tr class="row-highlight level1-jump-row" data-jump-main="panel-supply" data-jump-sub="supply-gaomeng" data-jump-key="高锰压块" title="点击查看二级明细">
+                                <td>供应料型</td>
+                                <td><strong>高锰压块</strong></td>
+                                <td><span class="region-tag linfen">山西临汾</span></td>
+                                <td>单一价</td>
+                                <td class="price-cell pnum">2,320</td>
+                                <td><span class="dash-change-tag up">▲ +20</span></td>
+                                <td>05-06</td>
+                            </tr>
+                            <tr class="level1-jump-row" data-jump-main="panel-supply" data-jump-sub="supply-dimeng" data-jump-key="低锰压块" title="点击查看二级明细">
+                                <td>供应料型</td>
+                                <td>低锰压块</td>
+                                <td><span class="region-tag xingtai">邢台</span></td>
+                                <td>1–6mm · 均价</td>
+                                <td class="price-cell pnum">1,995</td>
+                                <td><span class="dash-change-tag stable">稳</span></td>
+                                <td>05-07</td>
+                            </tr>
+                            <tr class="level1-jump-row" data-jump-main="panel-supply" data-jump-sub="supply-lengban" data-jump-key="冷板" title="点击查看二级明细">
+                                <td>供应料型</td>
+                                <td>冷板</td>
+                                <td><span class="region-tag liaocheng">聊城郑家</span></td>
+                                <td>≥1mm · 均价</td>
+                                <td class="price-cell pnum">2,295</td>
+                                <td><span class="dash-change-tag flat">平</span></td>
+                                <td>05-07</td>
+                            </tr>
+                            <tr class="level1-jump-row" data-jump-main="panel-iron" data-jump-sub="iron-zhuzao" data-jump-key="铸造生铁" title="点击查看二级明细">
+                                <td>临汾生铁</td>
+                                <td>铸造生铁</td>
+                                <td><span class="region-tag linfen">山西临汾</span></td>
+                                <td>Z14-18</td>
+                                <td class="price-cell pnum">3,130</td>
+                                <td><span class="dash-change-tag flat">平</span></td>
+                                <td>05-07</td>
+                            </tr>
+                            <tr class="level1-jump-row" data-jump-main="panel-iron" data-jump-sub="iron-qiumo" data-jump-key="球墨铸铁" title="点击查看二级明细">
+                                <td>临汾生铁</td>
+                                <td>球墨铸铁</td>
+                                <td><span class="region-tag linfen">山西临汾</span></td>
+                                <td>Q12 · 均价</td>
+                                <td class="price-cell pnum">3,110</td>
+                                <td><span class="dash-change-tag flat">平</span></td>
+                                <td>05-07</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </div>
+    </div>
+
+    <!-- 二级整页：默认隐藏，点一级表格后显示 -->
+    <div id="page-level2" class="app-page">
+    <div class="level2-root" id="level2-root">
+        <div class="main-container">
+        <section id="level2-board" class="level2-board" aria-label="二级看板">
+            <div class="level2-sticky-top">
+                <div class="level2-board-header">
+                    <div class="level2-board-header-actions">
+                        <button type="button" class="btn-back-level1" id="btn-back-level1" title="返回仅显示一级的页面">← 返回一级看板</button>
+                        <div class="level2-board-title" style="margin:0;">
+                        </div>
+                    </div>
+                </div>
+                <div class="main-tab-strip" role="tablist" aria-label="数据板块切换">
+                    <button type="button" class="main-tab-btn active" data-main-panel="panel-steel" role="tab" aria-selected="true">周边地区大型钢厂挂牌价</button>
+                    <button type="button" class="main-tab-btn" data-main-panel="panel-supply" role="tab" aria-selected="false">供应料型 · 所在地市场分析</button>
+                    <button type="button" class="main-tab-btn" data-main-panel="panel-iron" role="tab" aria-selected="false">生铁价格 · 山西临汾</button>
+                </div>
+            </div>
+            <div class="dashboard-tabbed">
+
+            <!-- —— 钢厂挂牌（子标签：立恒 / 建邦 / 首钢长治） —— -->
+            <div id="panel-steel" class="main-tab-panel section active" role="tabpanel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="icon-dot steel"></span> 周边地区大型钢厂挂牌价
+                    </div>
+                    <span class="section-badge">3家钢厂 · 31条记录 | 数据日期：2026-05-05 ~ 05-06</span>
+                </div>
+                <div class="sub-tab-strip" role="tablist" aria-label="钢厂切换">
+                    <button type="button" class="sub-tab-btn active" data-sub-panel="mill-liheng" role="tab">立恒</button>
+                    <button type="button" class="sub-tab-btn" data-sub-panel="mill-jianbang" role="tab">建邦</button>
+                    <button type="button" class="sub-tab-btn" data-sub-panel="mill-shougang" role="tab">首钢长治</button>
+                </div>
+
+                <div id="mill-liheng" class="sub-tab-panel active">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">挂牌价走势 · 横轴日期 / 纵轴价格（下拉选一种料型，数据来自表格）</div>
+                        <div class="l2-mill-chart-filter" data-l2-mill-filter>
+                            <label class="l2-mill-chart-filter-label" for="l2-mill-sel-liheng">料型</label>
+                            <select id="l2-mill-sel-liheng" class="l2-mill-chart-material" title="一次仅查看一个料型的价格走势"></select>
+                        </div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-mill-liheng" data-l2-chart="1" role="img" aria-label="挂牌价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>钢厂</th>
+                                        <th>料型</th>
+                                        <th>挂牌价 (元/吨)</th>
+                                        <th>日期</th>
+                                        <th>风控参考</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>钢筋头</td>
+                                        <td class="price-cell price-range">2,360</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--accent-purple);">立恒最高挂牌价</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>优质废钢</td>
+                                        <td class="price-cell">2,320</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>道轨</td>
+                                        <td class="price-cell">2,320</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>冲子料</td>
+                                        <td class="price-cell">2,300</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>废钢</td>
+                                        <td class="price-cell">2,300</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>钢筋压块</td>
+                                        <td class="price-cell">2,290</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>缸体</td>
+                                        <td class="price-cell">2,270</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>马蹄铁</td>
+                                        <td class="price-cell">2,270</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>马蹄佚</td>
+                                        <td class="price-cell">2,250</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>一级废钢压块</td>
+                                        <td class="price-cell">2,240</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>轮毂</td>
+                                        <td class="price-cell">2,240</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>边角料</td>
+                                        <td class="price-cell">2,230</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>废钢新料</td>
+                                        <td class="price-cell">2,220</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>破碎料</td>
+                                        <td class="price-cell">2,190</td>
+                                        <td>2026-05-05 ⚠️</td>
+                                        <td style="color:var(--accent-amber);">数据滞后2天</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>铸件</td>
+                                        <td class="price-cell">2,170</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>钢屑压块</td>
+                                        <td class="price-cell">2,160</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag liheng">山西立恒</span></td>
+                                        <td>二级废钢压块</td>
+                                        <td class="price-cell" style="color:var(--accent-red);">2,010</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--accent-red);">立恒最低挂牌价</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="panel-footnote">
+                        <span>🏭 <strong style="color:var(--accent-purple);">山西立恒</strong>：挂牌价区间 <strong style="color:var(--accent-cyan);">2,010 – 2,360</strong> 元/吨（17条记录）</span>
+                    </div>
+                </div>
+
+                <div id="mill-jianbang" class="sub-tab-panel">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">挂牌价走势 · 横轴日期 / 纵轴价格（下拉选一种料型，数据来自表格）</div>
+                        <div class="l2-mill-chart-filter" data-l2-mill-filter>
+                            <label class="l2-mill-chart-filter-label" for="l2-mill-sel-jianbang">料型</label>
+                            <select id="l2-mill-sel-jianbang" class="l2-mill-chart-material" title="一次仅查看一个料型的价格走势"></select>
+                        </div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-mill-jianbang" data-l2-chart="1" role="img" aria-label="挂牌价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>钢厂</th>
+                                        <th>料型</th>
+                                        <th>挂牌价 (元/吨)</th>
+                                        <th>日期</th>
+                                        <th>风控参考</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>特级(15)</td>
+                                        <td class="price-cell price-range">2,310</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--accent-cyan);">建邦最高挂牌价</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>重一(10)</td>
+                                        <td class="price-cell">2,270</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>重二(6-8-10)</td>
+                                        <td class="price-cell">2,240</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>重三(4-6)</td>
+                                        <td class="price-cell">2,200</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>剪切料一级≥3mm</td>
+                                        <td class="price-cell">2,160</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>破碎料一级＞2mm</td>
+                                        <td class="price-cell">2,130</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>剪切料二级≥2mm</td>
+                                        <td class="price-cell">2,120</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>剪切料三级≥1mm</td>
+                                        <td class="price-cell">2,020</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>破碎料二级1-2mm</td>
+                                        <td class="price-cell">2,010</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>破碎料三级＜1mm</td>
+                                        <td class="price-cell">1,930</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag jianbang">山西建邦</span></td>
+                                        <td>剪切料四级≤1mm</td>
+                                        <td class="price-cell" style="color:var(--accent-red);">1,800</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--accent-red);">建邦最低挂牌价</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="panel-footnote">
+                        <span>🏭 <strong style="color:var(--accent-blue);">山西建邦</strong>：挂牌价区间 <strong style="color:var(--accent-cyan);">1,800 – 2,310</strong> 元/吨（11条记录）</span>
+                    </div>
+                </div>
+
+                <div id="mill-shougang" class="sub-tab-panel">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">挂牌价走势 · 横轴日期 / 纵轴价格（下拉选一种料型，数据来自表格）</div>
+                        <div class="l2-mill-chart-filter" data-l2-mill-filter>
+                            <label class="l2-mill-chart-filter-label" for="l2-mill-sel-shougang">料型</label>
+                            <select id="l2-mill-sel-shougang" class="l2-mill-chart-material" title="一次仅查看一个料型的价格走势"></select>
+                        </div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-mill-shougang" data-l2-chart="1" role="img" aria-label="挂牌价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>钢厂</th>
+                                        <th>料型</th>
+                                        <th>挂牌价 (元/吨)</th>
+                                        <th>日期</th>
+                                        <th>风控参考</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="mill-tag shougang">首钢长治钢铁</span></td>
+                                        <td>重优</td>
+                                        <td class="price-cell price-range" style="color:var(--accent-yellow);font-weight:700;">2,670</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--accent-yellow);">🏆 全部挂牌价最高</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag shougang">首钢长治钢铁</span></td>
+                                        <td>中型一级</td>
+                                        <td class="price-cell">2,630</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--accent-blue);">显著高于其他钢厂</td>
+                                    </tr>
+                                    <tr>
+                                        <td><span class="mill-tag shougang">首钢长治钢铁</span></td>
+                                        <td>中型二级</td>
+                                        <td class="price-cell">2,600</td>
+                                        <td>2026-05-06</td>
+                                        <td style="color:var(--accent-blue);">显著高于其他钢厂</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="panel-footnote">
+                        <span>🏭 <strong style="color:var(--accent-orange);">首钢长治钢铁</strong>：挂牌价区间 <strong style="color:var(--accent-yellow);">2,600 – 2,670</strong> 元/吨（3条记录）⚠️ 显著偏高</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- —— 供应料型（子标签：品名） —— -->
+            <div id="panel-supply" class="main-tab-panel section" role="tabpanel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="icon-dot supply"></span> 供应料型 · 所在地市场分析
+                    </div>
+                    <span class="section-badge">4个料型 | 数据日期：2026-05-06 ~ 05-07</span>
+                </div>
+                <div class="sub-tab-strip" role="tablist" aria-label="品名切换">
+                    <button type="button" class="sub-tab-btn active" data-sub-panel="supply-zhongmeng" role="tab">中锰边丝/中锰散料</button>
+                    <button type="button" class="sub-tab-btn" data-sub-panel="supply-gaomeng" role="tab">高锰压块</button>
+                    <button type="button" class="sub-tab-btn" data-sub-panel="supply-dimeng" role="tab">低锰压块</button>
+                    <button type="button" class="sub-tab-btn" data-sub-panel="supply-lengban" role="tab">冷板</button>
+                </div>
+
+                <div id="supply-zhongmeng" class="sub-tab-panel active">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">均价走势 · 横轴日期 / 纵轴价格（仅表格内数据）</div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-supply-zhongmeng" data-l2-chart="1" role="img" aria-label="均价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>地区</th>
+                                        <th>品名</th>
+                                        <th>规格</th>
+                                        <th>价格区间 (元/吨)</th>
+                                        <th>均价 (元/吨)</th>
+                                        <th>涨跌</th>
+                                        <th>价格日期</th>
+                                        <th>风控标识</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="region-tag handan">邯郸</span></td>
+                                        <td>钢板料</td>
+                                        <td>≥10mm</td>
+                                        <td class="price-cell price-range">2,130 – 2,180</td>
+                                        <td class="price-cell avg-price">2,155</td>
+                                        <td><span class="change-badge stable">稳</span></td>
+                                        <td>2026-05-07</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="supply-gaomeng" class="sub-tab-panel">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">均价走势 · 横轴日期 / 纵轴价格（仅表格内数据）</div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-supply-gaomeng" data-l2-chart="1" role="img" aria-label="均价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>地区</th>
+                                        <th>品名</th>
+                                        <th>规格</th>
+                                        <th>价格区间 (元/吨)</th>
+                                        <th>均价 (元/吨)</th>
+                                        <th>涨跌</th>
+                                        <th>价格日期</th>
+                                        <th>风控标识</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr class="row-highlight">
+                                        <td><span class="region-tag linfen">山西临汾</span></td>
+                                        <td><strong>高锰压块</strong></td>
+                                        <td>—</td>
+                                        <td class="price-cell price-single">2,320</td>
+                                        <td class="price-cell avg-price">2,320 <span style="font-size:0.7rem;color:var(--text-muted);">(单一价)</span></td>
+                                        <td><span class="change-badge up">▲ +20</span></td>
+                                        <td>2026-05-06 ⚠️</td>
+                                        <td style="color:var(--accent-amber);font-weight:600;">⚠️ 涨价 · 数据滞后1天</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="supply-dimeng" class="sub-tab-panel">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">均价走势 · 横轴日期 / 纵轴价格（仅表格内数据）</div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-supply-dimeng" data-l2-chart="1" role="img" aria-label="均价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>地区</th>
+                                        <th>品名</th>
+                                        <th>规格</th>
+                                        <th>价格区间 (元/吨)</th>
+                                        <th>均价 (元/吨)</th>
+                                        <th>涨跌</th>
+                                        <th>价格日期</th>
+                                        <th>风控标识</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="region-tag xingtai">邢台</span></td>
+                                        <td>低锰压块</td>
+                                        <td>1-6mm</td>
+                                        <td class="price-cell price-range">1,970 – 2,020</td>
+                                        <td class="price-cell avg-price">1,995</td>
+                                        <td><span class="change-badge stable">稳</span></td>
+                                        <td>2026-05-07</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="supply-lengban" class="sub-tab-panel">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">均价走势 · 横轴日期 / 纵轴价格（仅表格内数据）</div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-supply-lengban" data-l2-chart="1" role="img" aria-label="均价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>地区</th>
+                                        <th>品名</th>
+                                        <th>规格</th>
+                                        <th>价格区间 (元/吨)</th>
+                                        <th>均价 (元/吨)</th>
+                                        <th>涨跌</th>
+                                        <th>价格日期</th>
+                                        <th>风控标识</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="region-tag liaocheng">聊城郑家</span></td>
+                                        <td>冷板</td>
+                                        <td>≥1mm</td>
+                                        <td class="price-cell price-range">2,290 – 2,300</td>
+                                        <td class="price-cell avg-price">2,295</td>
+                                        <td><span class="change-badge flat">平</span></td>
+                                        <td>2026-05-07</td>
+                                        <td style="color:var(--text-muted);">—</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- —— 生铁（子标签：品名） —— -->
+            <div id="panel-iron" class="main-tab-panel section" role="tabpanel">
+                <div class="section-header">
+                    <div class="section-title">
+                        <span class="icon-dot iron"></span> 生铁价格 · 山西临汾
+                    </div>
+                    <span class="section-badge">2个品名 | 数据日期：2026-05-07</span>
+                </div>
+                <div class="sub-tab-strip" role="tablist" aria-label="品名切换">
+                    <button type="button" class="sub-tab-btn active" data-sub-panel="iron-zhuzao" role="tab">铸造生铁</button>
+                    <button type="button" class="sub-tab-btn" data-sub-panel="iron-qiumo" role="tab">球墨铸铁</button>
+                </div>
+
+                <div id="iron-zhuzao" class="sub-tab-panel active">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">均价走势 · 横轴日期 / 纵轴价格（仅表格内数据）</div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-iron-zhuzao" data-l2-chart="1" role="img" aria-label="均价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>地区</th>
+                                        <th>品名</th>
+                                        <th>规格</th>
+                                        <th>价格区间 (元/吨)</th>
+                                        <th>均价 (元/吨)</th>
+                                        <th>涨跌</th>
+                                        <th>价格日期</th>
+                                        <th>风控备注</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="region-tag linfen">山西临汾</span></td>
+                                        <td>铸造生铁</td>
+                                        <td>Z14-18</td>
+                                        <td class="price-cell price-single">3,130</td>
+                                        <td class="price-cell avg-price">3,130</td>
+                                        <td><span class="change-badge flat">平</span></td>
+                                        <td>2026-05-07</td>
+                                        <td style="color:var(--accent-green);">✅ 价格稳定</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="iron-qiumo" class="sub-tab-panel">
+                    <div class="l2-sub-chart-wrap">
+                        <div class="l2-sub-chart-title">均价走势 · 横轴日期 / 纵轴价格（仅表格内数据）</div>
+                        <div class="l2-sub-chart-canvas-h">
+                            <canvas id="l2-chart-iron-qiumo" data-l2-chart="1" role="img" aria-label="均价折线图"></canvas>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <div class="table-wrapper">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>地区</th>
+                                        <th>品名</th>
+                                        <th>规格</th>
+                                        <th>价格区间 (元/吨)</th>
+                                        <th>均价 (元/吨)</th>
+                                        <th>涨跌</th>
+                                        <th>价格日期</th>
+                                        <th>风控备注</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><span class="region-tag linfen">山西临汾</span></td>
+                                        <td>球墨铸铁</td>
+                                        <td>Q12</td>
+                                        <td class="price-cell price-range">3,100 – 3,120</td>
+                                        <td class="price-cell avg-price">3,110</td>
+                                        <td><span class="change-badge flat">平</span></td>
+                                        <td>2026-05-07</td>
+                                        <td style="color:var(--accent-green);">✅ 价格稳定</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-footnote">
+                    <span>📐 铸造生铁 vs 球墨铸铁价差：<strong style="color:var(--accent-cyan);">20 元/吨</strong>（铸造生铁略高）</span>
+                    <span>📊 生铁与高锰压块价差：<strong style="color:var(--accent-orange);">810 元/吨</strong>（铸造生铁 3,130 - 高锰压块 2,320）</span>
+                </div>
+            </div>
+        </div>
+        </section>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+    (function () {
+        var mainBtns = document.querySelectorAll('#page-level2 .main-tab-btn');
+        var mainPanels = document.querySelectorAll('.dashboard-tabbed .main-tab-panel');
+
+        function extractDateKey(text) {
+            var m = String(text || '').match(/(\d{4})-(\d{2})-(\d{2})/);
+            if (!m) return null;
+            return m[1] + '-' + m[2] + '-' + m[3];
+        }
+
+        function formatShortDateLabel(isoKey) {
+            var p = String(isoKey || '').split('-');
+            if (p.length !== 3) return isoKey || '—';
+            return parseInt(p[1], 10) + '/' + parseInt(p[2], 10);
+        }
+
+        /** 仅使用表格聚合后的真实日期点，不补虚拟数据 */
+        function datePointsToSeries(points) {
+            if (!points.length) {
+                return { labels: [], values: [] };
+            }
+            return {
+                labels: points.map(function (p) {
+                    return p.label;
+                }),
+                values: points.map(function (p) {
+                    return p.value;
+                })
+            };
+        }
+
+        function firstNumberFromText(s) {
+            var m = String(s || '').match(/[\d,]+/);
+            return m ? parseInt(m[0].replace(/,/g, ''), 10) : NaN;
+        }
+
+        function normSteelMaterialName(s) {
+            return String(s || '').replace(/\s+/g, ' ').trim();
+        }
+
+        /** 按表格行顺序列出料型（去重，保留首次出现顺序） */
+        function getOrderedSteelMaterials(sub) {
+            var list = [];
+            var seen = {};
+            sub.querySelectorAll('tbody tr').forEach(function (tr) {
+                var c = tr.cells;
+                if (!c || c.length < 2) return;
+                var name = normSteelMaterialName(c[1].innerText);
+                if (!name || seen[name]) return;
+                seen[name] = true;
+                list.push(name);
+            });
+            return list;
+        }
+
+        /** 根据表格填充料型下拉；无匹配时默认第一行料型 */
+        function syncMillMaterialSelect(sub) {
+            var wrap = sub.querySelector('.l2-sub-chart-wrap [data-l2-mill-filter]');
+            if (!wrap) return;
+            var sel = wrap.querySelector('.l2-mill-chart-material');
+            if (!sel) return;
+            var materials = getOrderedSteelMaterials(sub);
+            var prev = normSteelMaterialName(sel.value);
+            sel.innerHTML = '';
+            materials.forEach(function (m) {
+                var opt = document.createElement('option');
+                opt.value = m;
+                opt.textContent = m;
+                sel.appendChild(opt);
+            });
+            if (!materials.length) return;
+            if (prev && materials.indexOf(prev) !== -1) {
+                sel.value = prev;
+            } else {
+                sel.selectedIndex = 0;
+            }
+        }
+
+        /** 指定料型：日期列 + 挂牌价列；同日多行取均价 */
+        function parseSteelSeriesForMaterial(sub, materialName) {
+            var target = normSteelMaterialName(materialName);
+            if (!target) {
+                return datePointsToSeries([]);
+            }
+            var byDate = {};
+            sub.querySelectorAll('tbody tr').forEach(function (tr) {
+                var c = tr.cells;
+                if (!c || c.length < 4) return;
+                if (normSteelMaterialName(c[1].innerText) !== target) return;
+                var dk = extractDateKey(c[3].innerText);
+                if (!dk) return;
+                var raw = (c[2].innerText || '').replace(/,/g, '');
+                var num = parseInt(raw.replace(/[^\d]/g, ''), 10);
+                if (isNaN(num)) return;
+                if (!byDate[dk]) {
+                    byDate[dk] = { sum: 0, n: 0 };
+                }
+                byDate[dk].sum += num;
+                byDate[dk].n += 1;
+            });
+            var points = Object.keys(byDate).map(function (k) {
+                var o = byDate[k];
+                return {
+                    key: k,
+                    ts: Date.parse(k + 'T12:00:00'),
+                    value: Math.round(o.sum / o.n),
+                    label: formatShortDateLabel(k)
+                };
+            });
+            points.sort(function (a, b) {
+                return a.ts - b.ts;
+            });
+            return datePointsToSeries(points);
+        }
+
+        /** 供应/生铁表：价格日期列 + 均价列，同日多行取均价 */
+        function parseSupplyIronSeriesFromSubPanel(sub) {
+            var byDate = {};
+            sub.querySelectorAll('tbody tr').forEach(function (tr) {
+                var c = tr.cells;
+                if (!c || c.length < 7) return;
+                var dk = extractDateKey(c[6].innerText);
+                if (!dk) return;
+                var num = firstNumberFromText(c[4].innerText);
+                if (isNaN(num)) return;
+                if (!byDate[dk]) {
+                    byDate[dk] = { sum: 0, n: 0 };
+                }
+                byDate[dk].sum += num;
+                byDate[dk].n += 1;
+            });
+            var points = Object.keys(byDate).map(function (k) {
+                var o = byDate[k];
+                return {
+                    key: k,
+                    ts: Date.parse(k + 'T12:00:00'),
+                    value: Math.round(o.sum / o.n),
+                    label: formatShortDateLabel(k)
+                };
+            });
+            points.sort(function (a, b) {
+                return a.ts - b.ts;
+            });
+            return datePointsToSeries(points);
+        }
+
+        function refreshL2SubTabLineChart(panelEl, subId) {
+            if (typeof Chart === 'undefined') return;
+            var sub = document.getElementById(subId);
+            if (!sub) return;
+            var canvas = sub.querySelector('canvas[data-l2-chart]');
+            if (!canvas) return;
+            var existing = Chart.getChart(canvas);
+            if (existing) existing.destroy();
+            var mainId = panelEl.id;
+            var parsed;
+            var yTitle;
+            var matLabel = '';
+            if (mainId === 'panel-steel') {
+                syncMillMaterialSelect(sub);
+                var sel = sub.querySelector('.l2-mill-chart-material');
+                matLabel = sel && sel.value ? sel.value : '';
+                if (!matLabel && sel && sel.options.length) {
+                    matLabel = sel.options[0].value;
+                }
+                parsed = parseSteelSeriesForMaterial(sub, matLabel);
+                yTitle = '挂牌价 (元/吨)';
+            } else {
+                parsed = parseSupplyIronSeriesFromSubPanel(sub);
+                yTitle = '均价 (元/吨)';
+            }
+            var labels = parsed.labels;
+            var values = parsed.values;
+            if (!values.length) return;
+            var minY = Math.min.apply(null, values);
+            var maxY = Math.max.apply(null, values);
+            var spread = maxY - minY;
+            var pad = spread > 0 ? Math.max(15, Math.round(spread * 0.12)) : Math.max(20, Math.round(minY * 0.02));
+            var manyPts = values.length > 14;
+            var singlePt = values.length === 1;
+            new Chart(canvas, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: mainId === 'panel-steel' && matLabel ? matLabel + ' · ' + yTitle : yTitle,
+                        data: values,
+                        borderColor: 'rgba(37, 99, 235, 0.95)',
+                        backgroundColor: 'rgba(37, 99, 235, 0.08)',
+                        fill: true,
+                        tension: singlePt ? 0 : 0.25,
+                        pointRadius: manyPts ? 0 : singlePt ? 5 : 3,
+                        pointHoverRadius: 6,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                title: function (items) {
+                                    if (!items.length) return '';
+                                    var i = items[0].dataIndex;
+                                    return '日期：' + (labels[i] != null ? labels[i] : '');
+                                },
+                                label: function (ctx) {
+                                    var v = ctx.parsed.y;
+                                    return typeof v === 'number' && !isNaN(v)
+                                        ? yTitle.replace(/\s*\(.*\)\s*$/, '') + ' ' + v.toLocaleString('zh-CN') + ' 元/吨'
+                                        : '';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: '日期',
+                                font: { size: 11, weight: '600' },
+                                color: '#64748b',
+                                padding: { top: 8 }
+                            },
+                            ticks: {
+                                maxRotation: 48,
+                                minRotation: 0,
+                                autoSkip: true,
+                                maxTicksLimit: 18,
+                                font: { size: 10 }
+                            },
+                            grid: { display: false }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: '价格 (元/吨)',
+                                font: { size: 11, weight: '600' },
+                                color: '#64748b',
+                                padding: { bottom: 4 }
+                            },
+                            suggestedMin: minY - pad,
+                            suggestedMax: maxY + pad,
+                            ticks: {
+                                callback: function (val) {
+                                    return typeof val === 'number' && !isNaN(val)
+                                        ? val.toLocaleString('zh-CN')
+                                        : val;
+                                },
+                                font: { size: 10 }
+                            },
+                            grid: { color: 'rgba(148, 163, 184, 0.25)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function refreshActiveL2Charts() {
+            var main = document.querySelector('#page-level2 .dashboard-tabbed .main-tab-panel.active');
+            if (!main) return;
+            var sub = main.querySelector('.sub-tab-panel.active');
+            if (sub) {
+                refreshL2SubTabLineChart(main, sub.id);
+            }
+        }
+
+        function activateMainTab(panelId) {
+            if (!panelId) return;
+            mainBtns.forEach(function (b) {
+                var on = b.getAttribute('data-main-panel') === panelId;
+                b.classList.toggle('active', on);
+                b.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+            mainPanels.forEach(function (p) {
+                p.classList.toggle('active', p.id === panelId);
+            });
+            requestAnimationFrame(function () {
+                var mp = document.getElementById(panelId);
+                if (!mp) return;
+                var s = mp.querySelector('.sub-tab-panel.active');
+                if (s) refreshL2SubTabLineChart(mp, s.id);
+            });
+        }
+
+        function activateSubTab(panelEl, subId) {
+            if (!panelEl || !subId) return;
+            panelEl.querySelectorAll('.sub-tab-btn').forEach(function (b) {
+                b.classList.toggle('active', b.getAttribute('data-sub-panel') === subId);
+            });
+            panelEl.querySelectorAll('.sub-tab-panel').forEach(function (p) {
+                p.classList.toggle('active', p.id === subId);
+            });
+            requestAnimationFrame(function () {
+                refreshL2SubTabLineChart(panelEl, subId);
+            });
+        }
+
+        mainBtns.forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                activateMainTab(btn.getAttribute('data-main-panel'));
+            });
+        });
+
+        document.querySelectorAll('.dashboard-tabbed .sub-tab-btn').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var subId = btn.getAttribute('data-sub-panel');
+                var host = btn.closest('.main-tab-panel');
+                if (!host || !subId) return;
+                activateSubTab(host, subId);
+            });
+        });
+
+        var pageL2 = document.getElementById('page-level2');
+        if (pageL2) {
+            pageL2.addEventListener('change', function (e) {
+                var t = e.target;
+                if (!t || !t.classList || !t.classList.contains('l2-mill-chart-material')) return;
+                var subPanel = t.closest('.sub-tab-panel');
+                var host = subPanel ? subPanel.closest('.main-tab-panel') : null;
+                if (!host || !subPanel || host.id !== 'panel-steel') return;
+                if (!subPanel.classList.contains('active')) return;
+                refreshL2SubTabLineChart(host, subPanel.id);
+            });
+        }
+
+        function stripTags(s) {
+            var d = document.createElement('div');
+            d.innerHTML = s;
+            return (d.textContent || d.innerText || '').replace(/\s+/g, ' ').trim();
+        }
+
+        function rowNameMatches(key, cellText) {
+            if (!key) return true;
+            var t = stripTags(cellText).replace(/\s/g, '');
+            var k = key.replace(/\s/g, '');
+            if (t.indexOf(k) !== -1) return true;
+            if (k.length >= 2 && t.indexOf(k.slice(0, 2)) !== -1 && k.indexOf('中锰') === 0) return true;
+            return false;
+        }
+
+        function flashDetailRow(mainId, subId, key) {
+            document.querySelectorAll('.dashboard-tabbed tr.row-jump-flash').forEach(function (r) {
+                r.classList.remove('row-jump-flash');
+            });
+            var subPanel = document.getElementById(subId);
+            if (!subPanel) return;
+            var table = subPanel.querySelector('table tbody');
+            if (!table) return;
+            var nameCol = mainId === 'panel-steel' ? 1 : 1;
+            var rows = table.querySelectorAll('tr');
+            for (var i = 0; i < rows.length; i++) {
+                var tr = rows[i];
+                var cells = tr.cells;
+                if (!cells || cells.length <= nameCol) continue;
+                var nameText = cells[nameCol].innerHTML;
+                if (rowNameMatches(key, nameText)) {
+                    tr.classList.add('row-jump-flash');
+                    setTimeout(function () {
+                        tr.classList.remove('row-jump-flash');
+                    }, 2300);
+                    tr.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+                    return;
+                }
+            }
+        }
+
+        function setAppPage(which) {
+            var p1 = document.getElementById('page-level1');
+            var p2 = document.getElementById('page-level2');
+            if (!p1 || !p2) return;
+            var root = document.documentElement;
+            if (which === 'level2') {
+                p1.classList.remove('app-page--active');
+                p2.classList.add('app-page--active');
+                root.classList.remove('view-level1-active');
+                requestAnimationFrame(function () {
+                    requestAnimationFrame(refreshActiveL2Charts);
+                });
+            } else {
+                p2.classList.remove('app-page--active');
+                p1.classList.add('app-page--active');
+                root.classList.add('view-level1-active');
+            }
+            window.scrollTo(0, 0);
+        }
+
+        function jumpFromLevel1Row(tr) {
+            var mainId = tr.getAttribute('data-jump-main');
+            var subId = tr.getAttribute('data-jump-sub');
+            var key = tr.getAttribute('data-jump-key') || '';
+            if (!mainId || !subId) return;
+            setAppPage('level2');
+            activateMainTab(mainId);
+            var host = document.getElementById(mainId);
+            if (host) activateSubTab(host, subId);
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    flashDetailRow(mainId, subId, key);
+                });
+            });
+        }
+
+        var backBtn = document.getElementById('btn-back-level1');
+        if (backBtn) {
+            backBtn.addEventListener('click', function () {
+                setAppPage('level1');
+            });
+        }
+
+        var level1 = document.querySelector('.level1-board');
+        if (level1) {
+            level1.addEventListener('click', function (e) {
+                var tr = e.target.closest('tr.level1-jump-row');
+                if (!tr || !level1.contains(tr)) return;
+                jumpFromLevel1Row(tr);
+            });
+        }
+
+        /** 一级看板：按「分组标题」划段，每段内只保留数据日期列（末列 MM-DD）最新的行 */
+        function parseLevel1DateKey(text) {
+            var s = String(text || '').replace(/\s/g, '');
+            var m = s.match(/^(\d{1,2})-(\d{1,2})$/);
+            if (!m) return null;
+            var mo = parseInt(m[1], 10);
+            var d = parseInt(m[2], 10);
+            if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+            return mo * 100 + d;
+        }
+        function filterLevel1LatestDatePerSection() {
+            var tbody = document.getElementById('level1-merged-tbody');
+            if (!tbody || !tbody.rows) return;
+            var rows = Array.prototype.slice.call(tbody.rows, 0);
+            rows.forEach(function (tr) {
+                tr.classList.remove('level1-date-filtered-out');
+            });
+            var blocks = [];
+            var cur = null;
+            for (var i = 0; i < rows.length; i++) {
+                var tr = rows[i];
+                if (tr.classList.contains('group-header-row')) {
+                    cur = { header: tr, dataRows: [] };
+                    blocks.push(cur);
+                    continue;
+                }
+                var cells = tr.cells;
+                if (!cells || cells.length < 7) continue;
+                var key = parseLevel1DateKey(cells[cells.length - 1].textContent);
+                if (key === null) continue;
+                if (!cur) {
+                    cur = { header: null, dataRows: [] };
+                    blocks.push(cur);
+                }
+                cur.dataRows.push(tr);
+            }
+            blocks.forEach(function (block) {
+                var maxKey = -1;
+                block.dataRows.forEach(function (tr) {
+                    var k = parseLevel1DateKey(tr.cells[tr.cells.length - 1].textContent);
+                    if (k !== null && k > maxKey) maxKey = k;
+                });
+                if (maxKey < 0) return;
+                var kept = 0;
+                block.dataRows.forEach(function (tr) {
+                    var k = parseLevel1DateKey(tr.cells[tr.cells.length - 1].textContent);
+                    if (k !== maxKey) {
+                        tr.classList.add('level1-date-filtered-out');
+                    } else {
+                        kept++;
+                    }
+                });
+                if (block.header && kept === 0) {
+                    block.header.classList.add('level1-date-filtered-out');
+                }
+            });
+        }
+
+        /** 一级看板钢厂涨跌：本期挂牌价 − data-last（上一次有效挂牌价） */
+        function parsePriceNum(el) {
+            return parseInt(String(el.textContent).replace(/,/g, '').trim(), 10);
+        }
+        function renderLevel1MillDeltas() {
+            var tbody = document.getElementById('level1-merged-tbody');
+            if (!tbody) return;
+            tbody.querySelectorAll('.mill-row').forEach(function (tr) {
+                var lastAttr = tr.getAttribute('data-last');
+                var curTd = tr.querySelector('.mill-cur');
+                var deltaTd = tr.querySelector('.mill-delta');
+                if (!curTd || !deltaTd) return;
+                var cur = parsePriceNum(curTd);
+                if (lastAttr === null || lastAttr === '') {
+                    deltaTd.innerHTML = '<span class="dash-change-tag unknown">待对照上次价</span>';
+                    return;
+                }
+                var last = parseInt(lastAttr, 10);
+                if (isNaN(last) || isNaN(cur)) {
+                    deltaTd.innerHTML = '<span class="dash-change-tag unknown">待对照上次价</span>';
+                    return;
+                }
+                var d = cur - last;
+                var lastFmt = last.toLocaleString('en-US');
+                var tip = '上次有效价 ' + lastFmt + ' 元/吨';
+                if (d === 0) {
+                    deltaTd.innerHTML = '<span class="dash-change-tag stable" title="' + tip + '">平</span>';
+                } else if (d > 0) {
+                    deltaTd.innerHTML = '<span class="dash-change-tag up" title="' + tip + '">▲ +' + d + '</span>';
+                } else {
+                    deltaTd.innerHTML = '<span class="dash-change-tag down" title="' + tip + '">▼ ' + d + '</span>';
+                }
+            });
+        }
+        filterLevel1LatestDatePerSection();
+        renderLevel1MillDeltas();
+    })();
+    </script>
+    </div>
+
+</body>
+</html>

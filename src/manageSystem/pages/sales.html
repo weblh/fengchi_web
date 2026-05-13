@@ -1,0 +1,2026 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>丰驰再生资源智控看板 | 环形图+指标卡+双表集成</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #f0f4fa;
+            font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            color: #0f172a;
+        }
+        .app-wrapper {
+            height: 100vh;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            padding: 16px 20px 20px 20px;
+            gap: 16px;
+            background: #f0f4fa;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        .view {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            overflow: visible;
+        }
+        .view-primary {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            flex: 1;
+        }
+        .view-secondary {
+            display: none;
+            flex-direction: column;
+            height: 100%;
+            min-width: 0;
+            width: 100%;
+            background: #ffffff;
+            border-radius: 32px;
+            padding: 20px 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+        .view-secondary.active-view {
+            display: flex;
+        }
+        /* 一行四列：环形图在左，指标卡在右 */
+        .dashboard-row {
+            display: flex;
+            gap: 20px;
+            flex-wrap: nowrap;
+            margin-bottom: 4px;
+            flex: 0 0 39%;
+            min-height: 300px;
+        }
+        .card-item {
+            flex: 1;
+            background: white;
+            border-radius: 28px;
+            padding: 12px 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+            border: 1px solid #e9edf2;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .card-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 22px rgba(0,0,0,0.08);
+            border-color: #3b82f6;
+        }
+        .metric-title {
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #5b6e8c;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+        .metric-value {
+            font-size: 2.4rem;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1.2;
+            text-align: center;
+            margin-bottom: 8px;
+        }
+        .metric-card {
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        .metric-unit {
+            font-size: 0.8rem;
+            font-weight: 400;
+            color: #6c86a3;
+            margin-left: 5px;
+        }
+        .ring-chart {
+            height: 100%;
+            width: 100%;
+            flex: 1;
+            min-height: 0;
+        }
+        #cardYearRing,
+        #cardMarRing {
+            flex: 0 0 24%;
+            min-width: 0;
+        }
+        #cardReceivableMain {
+            flex: 0 0 52%;
+            min-width: 0;
+        }
+        #cardYearRing .ring-chart,
+        #cardMarRing .ring-chart {
+            max-width: none;
+            margin: 0;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .card-header h3 {
+            font-size: 0.92rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .card-header i.fa-chevron-circle-right {
+            color: #64748b;
+        }
+        .date-selector {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            background: #f1f5f9;
+            padding: 6px 12px;
+            border-radius: 24px;
+            color: #475569;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .kpi-title {
+            font-size: 0.72rem;
+            color: #64748b;
+            margin-bottom: 2px;
+        }
+        .kpi-value {
+            font-size: 0.98rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .receivable-main-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .receivable-main-kpis {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .receivable-main-chart {
+            width: 100%;
+            height: 100%;
+            flex: 1;
+            min-height: 0;
+        }
+        .tab-header-mini {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+            flex-wrap: wrap;
+        }
+        .mini-tab-btn {
+            padding: 4px 14px;
+            border-radius: 24px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: #f1f5f9;
+            border: none;
+            cursor: pointer;
+            color: #475569;
+        }
+        .mini-tab-btn.active {
+            background: linear-gradient(135deg, #2f73ff, #4e8cff);
+            color: #fff;
+            box-shadow: 0 2px 6px rgba(47,115,255,0.2);
+        }
+        .detail-chart-container {
+            width: 100%;
+            height: 62vh;
+            min-height: 300px;
+            flex: 1;
+        }
+        .kpi-mini-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 12px;
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 10px 16px;
+        }
+        .kpi-mini-item {
+            flex: 1;
+            text-align: center;
+        }
+        .kpi-mini-label {
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+        .kpi-mini-value {
+            font-weight: 800;
+            font-size: 1.05rem;
+            color: #0f172a;
+        }
+        .ring-amount-info {
+            text-align: center;
+            margin-top: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: #2c3e66;
+            background: #f8fafc;
+            padding: 6px 10px;
+            border-radius: 40px;
+            width: fit-content;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .bottom-grid {
+            display: flex;
+            gap: 16px;
+            flex: 0 0 auto;
+            min-height: 620px;
+            align-items: stretch;
+        }
+        .inventory-panel {
+            flex: 1;
+            background: white;
+            border-radius: 28px;
+            padding: 10px 12px 12px 12px;
+            display: flex;
+            flex-direction: column;
+            border: 1px solid #eef2ff;
+            min-height: 0;
+            overflow: visible;
+            min-height: 620px;
+            height: 100%;
+        }
+        .inventory-panel h4 {
+            font-size: 0.95rem;
+            margin-bottom: 4px;
+            margin-top: 0;
+            line-height: 1.2;
+            flex-shrink: 0;
+        }
+        .inventory-chart {
+            flex: 1;
+            min-height: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .order-panel {
+            flex: 1;
+            background: white;
+            border-radius: 28px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+            border: 1px solid #eef2ff;
+            overflow: hidden;
+            min-height: 0;
+            min-height: 620px;
+        }
+        .supplier-summary-panel {
+            background: #ffffff;
+            border-radius: 28px;
+            border: 1px solid #eef2ff;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 420px;
+        }
+        .supplier-summary-head {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .supplier-summary-wrap {
+            overflow: visible;
+            flex: 1;
+        }
+        .supplier-summary-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+            table-layout: auto;
+        }
+        .supplier-summary-table th,
+        .supplier-summary-table td {
+            border: 1px solid #dbe5f3;
+            padding: 5px 4px;
+            text-align: center;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.25;
+        }
+        .supplier-summary-table th {
+            background: #f6f9ff;
+            font-weight: 700;
+        }
+        .table-box {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
+            min-height: 0;
+        }
+        .table-title {
+            font-weight: 600;
+            font-size: 0.9rem;
+            background: #f1f5f9;
+            padding: 5px 16px;
+            border-radius: 20px;
+            display: inline-block;
+            width: fit-content;
+        }
+        .mini-metric-card {
+            background: #fefefe;
+            border: 1px solid #eef2ff;
+            border-radius: 16px;
+            padding: 8px 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            min-width: 180px;
+        }
+        .mini-metric-title {
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #5b6e8c;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .mini-metric-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .compact-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            min-width: 100%;
+            table-layout: fixed;
+        }
+        .compact-table th, .compact-table td {
+            border-bottom: 1px solid #eef2ff;
+            padding: 6px 5px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .compact-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+        .secondary-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            border-bottom: 2px solid #eef2ff;
+            padding-bottom: 8px;
+        }
+        .secondary-header h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+        .btn-back {
+            background: #f1f5f9;
+            border: none;
+            padding: 6px 18px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn-back:hover {
+            background: #e2e8f0;
+        }
+        /* 质量索赔二级面板 - 双表格布局（索赔明细 + 废钢化学成分及保质期表） */
+        #claimDetailView {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            overflow: hidden;
+            padding: 20px 24px 18px;
+        }
+        .claim-split-layout {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-height: 0;
+            overflow: hidden;
+        }
+        .claim-table-section {
+            flex: 0 0 38%;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            background: #fefefe;
+            border-radius: 20px;
+            border: 1px solid #eef2ff;
+            padding: 12px 6px 6px 12px;
+            overflow: hidden;
+        }
+        .chem-table-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+            background: #fefefe;
+            border-radius: 20px;
+            border: 1px solid #eef2ff;
+            padding: 12px 6px 6px 12px;
+            overflow: hidden;
+        }
+        .section-title {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 12px;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-left: 4px solid #3b82f6;
+            padding-left: 12px;
+        }
+        .scrollable-table {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+        .scrollable-table .compact-table {
+            font-size: 11px;
+            min-width: 800px;
+            table-layout: auto;
+        }
+        .scrollable-table .compact-table th,
+        .scrollable-table .compact-table td {
+            white-space: nowrap;
+            padding: 8px 10px;
+        }
+        /* 质量索赔：附件列/材料图列定位更稳 */
+        .attach-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .badge-attach {
+            white-space: nowrap;
+            max-width: 100%;
+        }
+        .compact-table th.attach-col,
+        .compact-table td.attach-col {
+            width: 240px;
+            min-width: 240px;
+            white-space: normal;
+        }
+        .compact-table th.material-col,
+        .compact-table td.material-col {
+            width: 92px;
+            min-width: 92px;
+            text-align: center;
+        }
+        .material-icon-wrap {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+        .chem-wide-table {
+            font-size: 10px;
+            min-width: 1200px;
+        }
+        .badge-attach {
+            background: #eef2ff;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 10px;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+            margin: 2px;
+            transition: 0.1s;
+        }
+        .badge-attach:hover {
+            background: #d9e6ff;
+        }
+        .footer-note {
+            font-size: 9px;
+            text-align: center;
+            color: #8ba0bc;
+            margin-top: 8px;
+        }
+        .element-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .element-table th, .element-table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 6px;
+            text-align: center;
+        }
+        .order-progress-wrap {
+            min-width: 130px;
+        }
+        .order-progress-track {
+            width: 100%;
+            height: 10px;
+            border-radius: 10px;
+            background: #e2e8f0;
+            overflow: hidden;
+            margin-bottom: 4px;
+        }
+        .order-progress-fill {
+            height: 100%;
+            border-radius: 10px;
+            background: linear-gradient(90deg, #3b82f6, #10b981);
+        }
+        .order-progress-text {
+            font-size: 11px;
+            color: #334155;
+            font-weight: 600;
+        }
+        #orderTable {
+            table-layout: auto;
+            font-size: 12px;
+        }
+        #orderTable th,
+        #orderTable td {
+            padding: 8px 6px;
+            white-space: normal;
+            word-break: break-word;
+            line-height: 1.2;
+        }
+        #orderTable th:nth-child(6),
+        #orderTable th:nth-child(7),
+        #orderTable th:nth-child(8),
+        #orderTable th:nth-child(11),
+        #orderTable th:nth-child(12),
+        #orderTable th:nth-child(15),
+        #orderTable td:nth-child(6),
+        #orderTable td:nth-child(7),
+        #orderTable td:nth-child(8),
+        #orderTable td:nth-child(11),
+        #orderTable td:nth-child(12),
+        #orderTable td:nth-child(15) {
+            white-space: nowrap;
+            word-break: keep-all;
+        }
+        .element-table th {
+            background: #f1f5f9;
+            position: sticky;
+            top: 0;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.85);
+            backdrop-filter: blur(3px);
+        }
+        .modal-content {
+            margin: 8% auto;
+            padding: 20px;
+            background: white;
+            border-radius: 28px;
+            width: 85%;
+            max-width: 750px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .close {
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #94a3b8;
+        }
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        @media (max-width: 1000px) {
+            .dashboard-row { gap: 12px; }
+            .ring-chart { min-height: 110px; }
+            .section-title { font-size: 0.85rem; }
+            #cardYearRing,
+            #cardMarRing,
+            #cardReceivableMain {
+                flex: 1 1 auto;
+            }
+        }
+        /* 新增：Excel表格容器样式 */
+        .excel-table-section {
+            margin-top: 20px;
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 16px;
+            border: 1px solid #e2e8f0;
+            width: 100%;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .excel-table-container {
+            width: 100%;
+            min-width: 0;
+            overflow-x: auto;
+            overflow-y: auto;
+            max-height: 400px;
+            border-radius: 12px;
+            -webkit-overflow-scrolling: touch;
+        }
+        .table-filter-bar {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+        .table-filter-bar label {
+            font-size: 12px;
+            color: #334155;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .table-filter-bar select {
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 4px 8px;
+            background: #fff;
+            color: #0f172a;
+            min-width: 140px;
+            font-size: 12px;
+        }
+        .excel-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+            background: white;
+            min-width: 2800px;
+        }
+        .excel-table th, .excel-table td {
+            border: 1px solid #cbd5e1;
+            padding: 4px 6px;
+            white-space: nowrap;
+        }
+        .excel-table th {
+            background: #e2e8f0;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        .excel-table tbody tr:nth-child(even) {
+            background: #f8fafc;
+        }
+        /* 年度总销量进度页：整页统一横向 + 纵向滚动（表头、图表、两表一起动） */
+        #monthlyChartView {
+            flex: 1 1 0;
+            min-height: 0;
+            min-width: 0;
+            overflow: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        #monthlyChartView .monthly-excel-page-inner {
+            display: inline-block;
+            min-width: 100%;
+            vertical-align: top;
+        }
+        #monthlyChartView .secondary-header,
+        #monthlyChartView #monthlyChartContainer {
+            width: 100%;
+        }
+        #monthlyChartView .excel-table-section {
+            overflow: visible;
+            width: auto;
+            min-width: 100%;
+        }
+        #monthlyChartView .excel-table-container {
+            max-height: none;
+            overflow: visible;
+        }
+        #monthlyChartView .scrollable-content {
+            flex: 1;
+            overflow-x: auto;
+            overflow-y: auto;
+            min-width: 0;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 #f1f5f9;
+        }
+        #monthlyChartView .scrollable-content::-webkit-scrollbar {
+            width: 12px;
+            height: 12px;
+        }
+        #monthlyChartView .scrollable-content::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 6px;
+        }
+        #monthlyChartView .scrollable-content::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 6px;
+            border: 2px solid #f1f5f9;
+        }
+        #monthlyChartView .scrollable-content::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        #monthlyChartView .scrollable-content::-webkit-scrollbar-corner {
+            background: #f1f5f9;
+        }
+    </style>
+</head>
+<body>
+<div class="app-wrapper">
+    <!-- 主视图 -->
+    <div id="primaryView" class="view view-primary">
+        <div class="dashboard-row">
+            <div class="card-item" id="cardYearRing">
+                <div class="card-header"><h3><i class="fas fa-chart-simple"></i> 年度总销量进度</h3><i class="fas fa-chevron-circle-right"></i></div>
+                <div id="ringYearProgress" class="ring-chart"></div>
+            </div>
+            <div class="card-item" id="cardMarRing">
+                <div class="card-header"><h3><i class="fas fa-calendar-alt"></i> 3月计划完成进度</h3><i class="fas fa-chevron-circle-right"></i></div>
+                <div id="ringMarProgress" class="ring-chart"></div>
+            </div>
+            <div class="card-item" id="cardReceivableMain">
+                <div class="receivable-main-head">
+                    <h3 style="margin:0;"><i class="fas fa-receipt"></i> 应收账款·现汇/承兑堆积(万元)</h3>
+                    <div class="receivable-main-kpis">
+                        <div>
+                            <div class="kpi-title">账面应收</div>
+                            <div class="kpi-value" id="receivableMainBookTotal">¥0 万</div>
+                        </div>
+                        <div>
+                            <div class="kpi-title">逾期</div>
+                            <div class="kpi-value" id="receivableMainOverdueTotal" style="color:#ef4444;">¥0 万</div>
+                        </div>
+                        <div class="date-selector"><span class="status-dot"></span> <span id="receivableMainDate">-</span></div>
+                    </div>
+                </div>
+                <div id="receivableMainChart" class="receivable-main-chart"></div>
+            </div>
+        </div>
+        <div class="bottom-grid">
+            <div class="inventory-panel">
+                <h4><i class="fas fa-boxes"></i> 库存对比 (合格/不合格) 吨</h4>
+                <div id="inventoryChart" class="inventory-chart"></div>
+            </div>
+            <div class="order-panel">
+                <div class="table-box">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+                        <div class="table-title"><i class="fas fa-file-invoice"></i> 订单明细</div>
+                        <div class="mini-metric-card" id="claimAmountCard">
+                            <div class="mini-metric-title"><i class="fas fa-file-invoice-dollar"></i> 质量索赔总金额</div>
+                            <div class="mini-metric-value" id="totalClaimAmount">¥0</div>
+                        </div>
+                    </div>
+                    <table class="element-table" id="orderTable">
+                        <thead><tr><th>合同编号</th><th>公司</th><th>客户</th><th>物料名称</th><th>签订时间</th><th>期限天数</th><th>合同数量</th><th>单价</th><th>付款方式</th><th>执行时段</th><th>回货吨数</th><th>剩余吨数</th><th>备注</th><th>订单状态</th><th>订单金额</th></tr></thead>
+                        <tbody id="orderTbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <div class="supplier-summary-panel">
+            <div class="supplier-summary-head"><i class="fas fa-table"></i> 供应商月度吨位占比</div>
+            <div class="supplier-summary-wrap">
+                <table class="supplier-summary-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">供应商</th>
+                            <th rowspan="2">类型</th>
+                            <th colspan="2">1月</th>
+                            <th colspan="2">2月</th>
+                            <th colspan="2">3月</th>
+                            <th colspan="2">合计</th>
+                        </tr>
+                        <tr>
+                            <th>吨位</th><th>占比</th>
+                            <th>吨位</th><th>占比</th>
+                            <th>吨位</th><th>占比</th>
+                            <th>吨位</th><th>占比</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>FCR</td><td>废钢</td><td>36,022.62</td><td>73.87%</td><td>11,960.76</td><td>63.41%</td><td>24,774.80</td><td>81.93%</td><td>72,758.18</td><td>74.35%</td></tr>
+                        <tr><td>山西浩之顺</td><td>生铁 + 废钢</td><td>8,045.10</td><td>16.50%</td><td>5,168.43</td><td>27.40%</td><td>2,604.24</td><td>8.61%</td><td>15,817.77</td><td>16.16%</td></tr>
+                        <tr><td>晋源实业</td><td>生铁</td><td>3,625.25</td><td>7.43%</td><td>1,041.08</td><td>5.52%</td><td>1,464.18</td><td>4.84%</td><td>6,130.51</td><td>6.26%</td></tr>
+                        <tr><td>山西九州</td><td>废钢</td><td>633.57</td><td>1.30%</td><td>333.22</td><td>1.77%</td><td>237.04</td><td>0.78%</td><td>1,203.83</td><td>1.23%</td></tr>
+                        <tr><td>山西盛源</td><td>生铁</td><td>403.85</td><td>0.83%</td><td>345.96</td><td>1.83%</td><td>338.56</td><td>1.12%</td><td>1,088.37</td><td>1.11%</td></tr>
+                        <tr><td>山西华成</td><td>废钢</td><td>12.28</td><td>0.03%</td><td>12.50</td><td>0.07%</td><td>408.54</td><td>1.35%</td><td>433.32</td><td>0.44%</td></tr>
+                        <tr><td>陕西交通</td><td>废钢</td><td>-</td><td>-</td><td>-</td><td>-</td><td>207.71</td><td>0.69%</td><td>207.71</td><td>0.21%</td></tr>
+                        <tr><td>候马力信</td><td>废钢</td><td>-</td><td>-</td><td>-</td><td>-</td><td>203.93</td><td>0.67%</td><td>203.93</td><td>0.21%</td></tr>
+                        <tr><td>西安庆安</td><td>废钢</td><td>19.94</td><td>0.04%</td><td>-</td><td>0.00%</td><td>-</td><td>0.00%</td><td>19.94</td><td>0.02%</td></tr>
+                        <tr><td><b>合计</b></td><td></td><td><b>48,762.61</b></td><td><b>100.00%</b></td><td><b>18,861.95</b></td><td><b>100%</b></td><td><b>30,239.00</b></td><td><b>100%</b></td><td><b>97,863.56</b></td><td><b>100%</b></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- 二级页面1: 元素分布详情 (保留原化学成分表) -->
+    <div id="elementDetailView" class="view view-secondary">
+        <div class="secondary-header">
+            <h2><i class="fas fa-table"></i> 废钢化学成分表</h2>
+            <button class="btn-back" id="backFromElementBtn">← 返回主看板</button>
+        </div>
+        <div class="element-table-container">
+            <table class="element-table" id="chemFullTable"><thead id="chemTableHead"></thead><tbody id="chemTableBody"></tbody></table>
+        </div>
+        <div class="footer-note">基于《废钢化学成分及保质期表》整理，展示各料型元素含量上限或范围。点击图片图标可查看示意图。</div>
+    </div>
+
+    <!-- 二级页面2: 质量索赔完整明细 + 废钢化学成分及保质期表（完整xlsx表） -->
+    <div id="claimDetailView" class="view view-secondary">
+        <div class="secondary-header">
+            <h2><i class="fas fa-file-invoice-dollar"></i> 质量索赔 & 废钢化学成分标准库</h2>
+            <button class="btn-back" id="backFromClaimBtn">← 返回主看板</button>
+        </div>
+           <div class="claim-split-layout">
+            <div class="claim-table-section">
+                <div class="section-title"><i class="fas fa-clipboard-list"></i> 质量索赔明细</div>
+                <div class="scrollable-table">
+                    <table class="compact-table">
+                        <thead><tr><th>日期</th><th>车间</th><th>物料</th><th>索赔原因</th><th>索赔金额</th><th class="attach-col">附件</th></tr></thead>
+                        <tbody id="claimFullTbody"></tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="chem-table-section">
+                <div class="section-title"><i class="fas fa-flask"></i> 废钢化学成分及保质期表（完整版）</div>
+                <div class="scrollable-table">
+                    <table class="compact-table chem-wide-table" id="xlsxChemTable">
+                        <thead id="xlsxChemHead"></thead>
+                        <tbody id="xlsxChemBody"></tbody>
+                    </table>
+                </div>
+                <div class="footer-note">数据源自《废钢化学成分及保质期表》Sheet1，点击材料图查看示意图。</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 二级页面3A: 年度总销量进度 - 柱状图 + 两个Excel表格 -->
+    <div id="monthlyChartView" class="view view-secondary">
+        <div class="secondary-header">
+            <h2><i class="fas fa-chart-simple"></i> 年度总销量进度</h2>
+            <button class="btn-back" id="backFromMonthlyChartBtn">← 返回主看板</button>
+        </div>
+        <div class="scrollable-content" style="flex: 1; overflow-x: auto; overflow-y: auto; min-width: 0;">
+            <div class="content-wrapper" style="min-width: 100%; display: inline-block;">
+                <div id="monthlyChartContainer" style="width:100%; height:350px; min-height:350px;"></div>
+                
+                <!-- 4.12.xlsx 收货过磅单表格 -->
+                <div class="excel-table-section">
+                    <div class="section-title" style="margin-bottom: 12px;"><i class="fas fa-weight-scale"></i> 收货过磅单明细 (4.12.xlsx)</div>
+                    <div class="table-filter-bar">
+                        <label>过磅日期
+                            <select id="receiptDateFilter"></select>
+                        </label>
+                        <label>供应商
+                            <select id="receiptSupplierFilter"></select>
+                        </label>
+                    </div>
+                    <div class="excel-table-container" id="receiptTableContainer"></div>
+                </div>
+                
+                <!-- 秦壁4.12.xlsx 称重信息表格 -->
+                <div class="excel-table-section">
+                    <div class="section-title" style="margin-bottom: 12px;"><i class="fas fa-weight-hanging"></i> 称重信息明细 (秦壁4.12.xlsx)</div>
+                    <div class="excel-table-container" id="weighingTableContainer"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 二级页面3B: 3月计划完成进度 - 柱状图 -->
+    <div id="materialChartView" class="view view-secondary">
+        <div class="secondary-header">
+            <h2><i class="fas fa-calendar-alt"></i> 3月计划完成进度</h2>
+            <button class="btn-back" id="backFromMaterialChartBtn">← 返回主看板</button>
+        </div>
+        <div id="materialChartContainer" style="width:100%; height:92%;"></div>
+    </div>
+    <div id="inventoryFullView" class="view view-secondary">
+        <div class="secondary-header">
+            <h2><i class="fas fa-boxes"></i> 库存对比 (合格/不合格) 吨</h2>
+            <button class="btn-back" id="backFromInventoryFullBtn">← 返回主看板</button>
+        </div>
+        <div id="inventoryFullContainer" style="width:100%; height:92%;"></div>
+    </div>
+    <div id="receivableDetailView" class="view view-secondary">
+        <div class="secondary-header">
+            <h2><i class="fas fa-receipt"></i> 应收账款明细 (堆积柱状图·现汇/承兑拆分)</h2>
+            <button class="btn-back" id="backFromReceivableDetailBtn">← 返回主看板</button>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+            <div class="kpi-title" style="margin:0;"><i class="fas fa-receipt"></i> 应收账款明细 (堆积柱状图·现汇/承兑拆分)</div>
+            <div class="date-selector" id="receivableDateBadge"><span class="status-dot"></span> -</div>
+        </div>
+        <div class="tab-header-mini" id="receivableTabsHeader">
+            <button class="mini-tab-btn active" data-tab="fengchi">丰驰 (主料+钢丸·承兑为主)</button>
+            <button class="mini-tab-btn" data-tab="changze">昌泽 (主料+铁合金·现汇)</button>
+            <button class="mini-tab-btn" data-tab="yaotong">耀通 (主料)</button>
+            <button class="mini-tab-btn" data-tab="ferro">铁合金独立 (现汇)</button>
+            <button class="mini-tab-btn" data-tab="steel">钢丸独立 (承兑)</button>
+        </div>
+        <div id="detailChartContainer" class="detail-chart-container"></div>
+        <div class="kpi-mini-row">
+            <div class="kpi-mini-item"><span class="kpi-mini-label">账面应收总额</span><div id="detailBookTotal" class="kpi-mini-value">-</div></div>
+            <div class="kpi-mini-item"><span class="kpi-mini-label">逾期总额</span><div id="detailOverdueTotal" class="kpi-mini-value">-</div></div>
+        </div>
+    </div>
+</div>
+
+<div id="imageModal" class="modal"><div class="modal-content"><span class="close" id="closeImageModal">&times;</span><div id="imagePreviewBody"></div></div></div>
+
+<script>
+    // ======================= 原始业务数据 =======================
+    const monthlyPlan = [26142, 14305, 31046, 36347, 32943, 35346, 35046, 33243, 36647, 35441, 36849, 36645];
+    const monthlyActual = [35221, 15030, 10962, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    const yearTotalPlan = monthlyPlan.reduce((a,b)=>a+b,0);
+    const yearTotalActual = monthlyActual.reduce((a,b)=>a+b,0);
+    const yearCompletion = (yearTotalActual / yearTotalPlan) * 100;
+
+    const materialPlanMap = { "二级钢销":1000, "压缩机壳子":12000, "压缩机废铸件":6000, "有色金属":20, "高锰压块":3000, "低锰压块":4000, "废钢（除锈）":1000, "中锰边丝":1000, "废钢管架料":1000, "废钢管散料":300, "冲子料":400, "钢切丸":0, "含铜废钢":300, "铜":10, "含镍废钢":35, "含钼废钢":200, "铁合金":200, "低锰料（壳子替代料）":0, "精料（替代高锰压块）":0, "废铸件（生铁替代料）":0, "罐子替代料":1000, "边丝压块":0, "印刷辊":500, "中锰散料":0 };
+    const materialActualMap = { "二级钢销":201, "压缩机壳子":278, "压缩机废铸件":1523, "有色金属":4680, "高锰压块":276, "低锰压块":599, "废钢（除锈）":367, "中锰边丝":381, "废钢管架料":2, "废钢管散料":1, "冲子料":34, "钢切丸":0, "含铜废钢":0, "铜":96, "含镍废钢":512, "含钼废钢":345, "铁合金":212, "低锰料（壳子替代料）":1604, "精料（替代高锰压块）":3633, "废铸件（生铁替代料）":14744, "罐子替代料":201, "边丝压块":278, "印刷辊":1523, "中锰散料":4680 };
+    const marTotalActual = Object.values(materialActualMap).reduce((a,b)=>a+b,0);
+    const marTotalPlan = Object.values(materialPlanMap).reduce((a,b)=>a+b,0);
+    const marCompletion = (marTotalActual / marTotalPlan) * 100;
+    function toWanFixed(yuan) { return (yuan / 10000).toFixed(2); }
+    function todayStr() {
+        const d = new Date();
+        return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+    }
+    function monthWeekStr() {
+        const d = new Date();
+        return `${d.getMonth()+1}月 第${Math.ceil(d.getDate()/7)}周`;
+    }
+
+    // 应收账款数据（与 finance.html 中“应收账款·现汇/承兑堆积(万元)”保持一致）
+    const customers = ['精密','圣德曼','洪洞','翼城','重工'];
+    const fcSpotBook = [1734006.43, 6997432.91, 720138.72, 31487.55, 165224.00];
+    const fcAcceptBook = [4242982.25, 3915134.63, 12110727.41, 289490.46, 1798327.08];
+    const fcSpotOverdue = [1734006.43, 2911375.36, 720138.72, 31487.55, 165224.00];
+    const fcAcceptOverdue = [3119605.32, 1694539.00, 4675748.976, 289490.46, 1126553.504];
+    const czSpotBook = [184850.00, 1345528.68, 0, 0, 0];
+    const czAcceptBook = [480791.13, 3344433.40, 1552166.71, 0, 0];
+    const czSpotOverdue = [0, 630416.864, 0, 0, 0];
+    const czAcceptOverdue = [384632.904, 1487460.480, 1241733.368, 0, 0];
+    const ytSpotBook = [0,0,0,0,0];
+    const ytAcceptBook = [1371342.99, 12921720.00, 2817905.40, 0, 0];
+    const ytSpotOverdue = [0,0,0,0,0];
+    const ytAcceptOverdue = [753346.392, 5667214.592, 1521343.456, 0, 0];
+    const steelClients = ['精密','圣德曼','洪洞','轻合金','翼城','广东翔泰','重工'];
+    const steelBook = [695615.9, 3850575.5, 6214313.1, 140244, 257182.3, 58170, 288528.8];
+    const steelOverdue = [0,0,0,0,103537.8,0,8160.6];
+    const ferroClients = ['精密','圣德曼','洪洞','翼城','重工'];
+    const ferroBook = [371318.5, 695580.4, 1783018.6, 195671.7, 593630];
+    const ferroOverdue = [201953.2, 0, 827992.7, 195671.7, 593630];
+
+    function buildFengchiMerged() {
+        const clients = [...customers];
+        const spotBook = [...fcSpotBook];
+        const acceptBook = [...fcAcceptBook];
+        const spotOverdue = [...fcSpotOverdue];
+        const acceptOverdue = [...fcAcceptOverdue];
+        for (let i = 0; i < steelClients.length; i++) {
+            const sc = steelClients[i];
+            if (!clients.includes(sc)) clients.push(sc);
+            const idx = clients.indexOf(sc);
+            while (idx >= spotBook.length) {
+                spotBook.push(0); acceptBook.push(0); spotOverdue.push(0); acceptOverdue.push(0);
+            }
+            acceptBook[idx] += steelBook[i];
+            acceptOverdue[idx] += steelOverdue[i];
+        }
+        return { clients, spotBook, acceptBook, spotOverdue, acceptOverdue };
+    }
+    function buildChangzeMerged() {
+        const clients = [...customers];
+        const spotBook = [...czSpotBook];
+        const acceptBook = [...czAcceptBook];
+        const spotOverdue = [...czSpotOverdue];
+        const acceptOverdue = [...czAcceptOverdue];
+        for (let i = 0; i < ferroClients.length; i++) {
+            const fc = ferroClients[i];
+            if (!clients.includes(fc)) clients.push(fc);
+            const idx = clients.indexOf(fc);
+            while (idx >= spotBook.length) {
+                spotBook.push(0); acceptBook.push(0); spotOverdue.push(0); acceptOverdue.push(0);
+            }
+            spotBook[idx] += ferroBook[i];
+            spotOverdue[idx] += ferroOverdue[i];
+        }
+        return { clients, spotBook, acceptBook, spotOverdue, acceptOverdue };
+    }
+    function calcSplitTotals(merged) {
+        let spotBookTotal = 0, acceptBookTotal = 0, spotOverdueTotal = 0, acceptOverdueTotal = 0;
+        for (let i = 0; i < merged.clients.length; i++) {
+            spotBookTotal += merged.spotBook[i];
+            acceptBookTotal += merged.acceptBook[i];
+            spotOverdueTotal += merged.spotOverdue[i];
+            acceptOverdueTotal += merged.acceptOverdue[i];
+        }
+        return { spotBookTotal, acceptBookTotal, spotOverdueTotal, acceptOverdueTotal };
+    }
+    const fengchiMerged = buildFengchiMerged();
+    const changzeMerged = buildChangzeMerged();
+    const yaotongMerged = { clients: customers, spotBook: ytSpotBook, acceptBook: ytAcceptBook, spotOverdue: ytSpotOverdue, acceptOverdue: ytAcceptOverdue };
+    const fengchiSplit = calcSplitTotals(fengchiMerged);
+    const changzeSplit = calcSplitTotals(changzeMerged);
+    const yaotongSplit = calcSplitTotals(yaotongMerged);
+    const companies = ['丰驰', '昌泽', '耀通'];
+    const spotBookData = [fengchiSplit.spotBookTotal, changzeSplit.spotBookTotal, yaotongSplit.spotBookTotal];
+    const acceptBookData = [fengchiSplit.acceptBookTotal, changzeSplit.acceptBookTotal, yaotongSplit.acceptBookTotal];
+    const spotOverdueData = [fengchiSplit.spotOverdueTotal, changzeSplit.spotOverdueTotal, yaotongSplit.spotOverdueTotal];
+    const acceptOverdueData = [fengchiSplit.acceptOverdueTotal, changzeSplit.acceptOverdueTotal, yaotongSplit.acceptOverdueTotal];
+    const totalAllBook = spotBookData.reduce((a,b)=>a+b,0) + acceptBookData.reduce((a,b)=>a+b,0);
+    const totalAllOverdue = spotOverdueData.reduce((a,b)=>a+b,0) + acceptOverdueData.reduce((a,b)=>a+b,0);
+
+    // 库存数据
+    const inventoryItems = [{ name:"壳子", q:241.96, uq:0 },{ name:"含铜板料", q:10.55, uq:0 },{ name:"含锡压块", q:22.61, uq:0 },{ name:"含铜料", q:67.75, uq:0 },{ name:"低锰压块", q:201.87, uq:200.0 },{ name:"高锰压块", q:229.41, uq:0 },{ name:"边丝压块", q:407.95, uq:0 },{ name:"阴极罩", q:15.56, uq:0 },{ name:"高锰散料", q:100.09, uq:0 },{ name:"钢管料", q:0.98, uq:0 },{ name:"模板料", q:506.09, uq:0 },{ name:"U型钢", q:34.95, uq:0 },{ name:"含钼钢销", q:35.19, uq:0 },{ name:"废钢管散料", q:51.57, uq:0 },{ name:"生铁", q:104.06, uq:0 },{ name:"其他废钢", q:53.84, uq:0 }];
+    const ordersRaw = [
+        { contractNo: "HX2026030701FC", company: "山西丰驰再生资源有限公司", customer: "山西华翔集团股份有限公司-重工", material: "二级钢屑", signDate: "03月07日", termDays: 15, contractQty: 1000, unitPrice: 2330, payType: "承兑", executePeriod: "3.8-", received: 142.44, remaining: 857.56, remark: "", orderStatus: "未完成", orderAmount: "¥2330000" },
+        { contractNo: "QB2025092801FC", company: "山西丰驰再生资源有限公司", customer: "华翔（洪洞）智能科技有限公司", material: "高锰废料", signDate: "09月26日", termDays: 30, contractQty: 1500, unitPrice: 2650, payType: "银承", executePeriod: "9.30-", received: 1253.36, remaining: 246.64, remark: "", orderStatus: "未完成", orderAmount: "¥3975000" },
+        { contractNo: "HX2025101201FC", company: "山西丰驰再生资源有限公司", customer: "山西华翔集团股份有限公司-精密", material: "高锰压块", signDate: "10月4日", termDays: 30, contractQty: 4000, unitPrice: 2700, payType: "银承", executePeriod: "10.14-", received: 4184.21, remaining: -184.21, remark: "", orderStatus: "未完成", orderAmount: "¥10800000" },
+        { contractNo: "QB2025101201FC", company: "山西丰驰再生资源有限公司", customer: "华翔（洪洞）智能科技有限公司", material: "高锰压块", signDate: "10月4日", termDays: 30, contractQty: 6000, unitPrice: 2700, payType: "银承", executePeriod: "10.14-", received: 4933.89, remaining: 1066.11, remark: "", orderStatus: "未完成", orderAmount: "¥16200000" },
+        { contractNo: "HX2025101201FC", company: "山西丰驰再生资源有限公司", customer: "山西华翔集团股份有限公司-精密", material: "中锰边丝", signDate: "10月14日", termDays: 30, contractQty: 500, unitPrice: 2420, payType: "银承", executePeriod: "", received: 0, remaining: 500, remark: "", orderStatus: "未完成", orderAmount: "¥1210000" },
+        { contractNo: "QB2025101201FC", company: "山西丰驰再生资源有限公司", customer: "华翔（洪洞）智能科技有限公司", material: "中锰边丝", signDate: "10月14日", termDays: 30, contractQty: 1500, unitPrice: 2520, payType: "银承", executePeriod: "10.21-", received: 1175.78, remaining: 324.22, remark: "", orderStatus: "未完成", orderAmount: "¥3780000" },
+        { contractNo: "QB2025111401FC", company: "山西丰驰再生资源有限公司", customer: "华翔（洪洞）智能科技有限公司", material: "中锰边丝", signDate: "10月25日", termDays: 30, contractQty: 500, unitPrice: 2420, payType: "银承", executePeriod: "", received: 0, remaining: 500, remark: "", orderStatus: "未完成", orderAmount: "¥1210000" },
+        { contractNo: "QB2025111401FC", company: "山西丰驰再生资源有限公司", customer: "华翔（洪洞）智能科技有限公司", material: "中锰边丝", signDate: "10月25日", termDays: 30, contractQty: 500, unitPrice: 2420, payType: "银承", executePeriod: "", received: 0, remaining: 500, remark: "", orderStatus: "未完成", orderAmount: "¥1210000" },
+        { contractNo: "SDM2026020301FC", company: "山西丰驰再生资源有限公司", customer: "华翔（洪洞）智能科技有限公司", material: "低锰压块", signDate: "02月05日", termDays: 30, contractQty: 7000, unitPrice: 2755, payType: "现汇", executePeriod: "2.8-", received: 5919.87, remaining: 1080.13, remark: "", orderStatus: "未完成", orderAmount: "¥19285000" },
+        { contractNo: "HX2026012001FC", company: "山西丰驰再生资源有限公司", customer: "山西华翔集团股份有限公司-精密", material: "废钢管架料", signDate: "01月20日", termDays: 30, contractQty: 2500, unitPrice: 2680, payType: "银承", executePeriod: "1.20-", received: 1939.29, remaining: 560.71, remark: "", orderStatus: "未完成", orderAmount: "¥6700000" }
+    ];
+    const claimsFull = [["2026.3.4","铸造二车间","低锰压块","锌高","¥100,000","claim1.png,claim1.docx"],["2026.3.8","铸造一车间","低锰压块","锰高","¥26,667","claim2.png,claim2.docx"],["2026.3.9","铸造二车间","低锰压块","锰高/锌高","¥55,000","claim3.png,claim3.docx"],["2026.1.22-23","法兰铸造车间","高锰压块+废铸件","铝高","¥200,000","claim4.png,claim4.docx"],["2026.3.8-9","曲轴铸造车间","高锰压块","铬高","¥120,000","claim5.png,claim5.docx"]];
+
+    // 你的附件/材料图实际放在桌面目录（可直接读取本机文件）
+    const DASH_ASSET_ROOT = "C:\\Users\\Administrator\\Desktop\\销售部的可视化看板\\销售部的可视化看板-FILE";
+    const CLAIM_FLOW_ROOT = `${DASH_ASSET_ROOT}\\质量索赔\\流程`;
+    const MATERIAL_IMG_ROOT = `${DASH_ASSET_ROOT}\\废钢化学成分及保质期表-Sheet1\\材料图`;
+
+    const claimAttachmentMap = {
+        "claim1.png": `${CLAIM_FLOW_ROOT}\\2026.3.4\\1-2026.3.4-流程图.png`,
+        "claim1.docx": `${CLAIM_FLOW_ROOT}\\2026.3.4\\1-2026.3.4-低锰压块成分异常损失索赔3.4.docx`,
+        "claim2.png": `${CLAIM_FLOW_ROOT}\\2026.3.8\\2-2026.3.8-流程图.png`,
+        "claim2.docx": `${CLAIM_FLOW_ROOT}\\2026.3.8\\2-2026.3.8-低锰压块成分异常损失索赔3.8(1).docx`,
+        "claim3.png": `${CLAIM_FLOW_ROOT}\\2026.3.9\\3-2026.3.9-流程图.png`,
+        "claim3.docx": `${CLAIM_FLOW_ROOT}\\2026.3.9\\3-2026.3.9-低锰压块成分异常损失索赔3.9.docx`,
+        "claim4.png": `${CLAIM_FLOW_ROOT}\\2026年1月22-23日\\4-2026年1月22-23日-流程图.png`,
+        "claim4.docx": `${CLAIM_FLOW_ROOT}\\2026年1月22-23日\\4-2026年1月22-23日-废铸件、高锰压块成分异常损失索赔(1).docx`,
+        "claim5.png": `${CLAIM_FLOW_ROOT}\\2026年3月8-9日\\5-2026年3月8-9日-流程图.png`,
+        "claim5.docx": `${CLAIM_FLOW_ROOT}\\2026年3月8-9日\\5-2026年3月8-9日-曲轴索赔流程(1).docx`
+    };
+
+    // 材料图：以“料型名称”为 key（不依赖随机文件名）
+    const materialImageMap = {
+        "除锈废钢": `${MATERIAL_IMG_ROOT}\\1-除锈废钢-除锈二级.png`,
+        "低锰压块": `${MATERIAL_IMG_ROOT}\\2-低锰压块-低锰压块.png`,
+        "中锰边丝": `${MATERIAL_IMG_ROOT}\\3-中锰边丝-中锰边丝.png`,
+        "中锰散料": `${MATERIAL_IMG_ROOT}\\4-中锰散料-中锰散料.png`,
+        // 你的目录里第5张是“高锰压块”，先用于“高Mn废钢”示意（如需我可再按你实际命名调整）
+        "高Mn废钢": `${MATERIAL_IMG_ROOT}\\5-高锰压块-高锰压块.png`,
+        "罐子料": `${MATERIAL_IMG_ROOT}\\7-罐子料-罐子料.png`,
+        // 你的目录里第8张文件名包含“含镍废钢”，这里同时给“废铸件/含镍废钢”兜底
+        "废铸件": `${MATERIAL_IMG_ROOT}\\8-废铸件-含镍废钢.png`,
+        "含镍废钢（合金用）": `${MATERIAL_IMG_ROOT}\\8-废铸件-含镍废钢.png`
+    };
+
+    function calcClaimTotal() { return claimsFull.reduce((s,c)=> s + parseFloat(c[4].replace(/[¥,]/g,'')),0); }
+
+    // 环形图渲染
+    let ringYearChart, ringMarChart, invChart, invFullChart, secondaryEchart = null, receivableMainChart = null, activeReceivableDetailChart = null;
+    function renderRingProgress(domId, percent, totalPlan, totalActual) {
+        const dom = document.getElementById(domId);
+        if(!dom) return null;
+        const chart = echarts.init(dom);
+        const donePct = Math.max(0, percent);
+        const undonePct = donePct >= 100 ? 0 : (100 - donePct);
+        chart.setOption({
+            tooltip: {
+                trigger: 'item',
+                formatter: function(params) {
+                    return `${params.name}: ${params.value.toFixed(1)}%<br/>计划销量: ${totalPlan.toLocaleString()}<br/>实际销量: ${totalActual.toLocaleString()}`;
+                }
+            },
+            series: [{
+                type: 'pie',
+                radius: ['65%','85%'],
+                label: { show: true, position: 'center', formatter: `${donePct.toFixed(1)}%`, fontSize: 20, fontWeight: 'bold' },
+                labelLine: { show: false },
+                data: [
+                    { value: donePct, name:'完成', itemStyle:{color:'#3b82f6'} },
+                    { value: undonePct, name:'未完成', itemStyle:{color:'#e2e8f0'} }
+                ]
+            }]
+        });
+        const container = dom.parentElement;
+        let infoDiv = container.querySelector('.ring-amount-info');
+        if(!infoDiv) { infoDiv = document.createElement('div'); infoDiv.className = 'ring-amount-info'; container.appendChild(infoDiv); }
+        infoDiv.innerHTML = `📊 计划销量: ${totalPlan.toLocaleString()}  |  实际销量: ${totalActual.toLocaleString()}`;
+        return chart;
+    }
+    function buildInventoryOption() {
+        // 计算每个物料的总库存和占比
+        const inventoryData = inventoryItems.map(item => {
+            const total = item.q + item.uq;
+            const qualifiedPercent = total > 0 ? (item.q / total * 100).toFixed(1) : 0;
+            const unqualifiedPercent = total > 0 ? (item.uq / total * 100).toFixed(1) : 0;
+            return {
+                ...item,
+                total,
+                qualifiedPercent,
+                unqualifiedPercent
+            };
+        });
+
+        return {
+            title: {
+                text: '库存对比 (合格/不合格) 吨',
+                left: '2%',
+                top: 4,
+                textStyle: {
+                    fontSize: 30,
+                    fontWeight: 700,
+                    color: '#0f172a'
+                }
+            },
+            grid: {
+                left: '4%',
+                right: '3%',
+                top: 92,
+                bottom: 70,
+                containLabel: true
+            },
+            tooltip: { 
+                trigger: 'axis',
+                formatter: function(params) {
+                    const item = inventoryData[params[0].dataIndex];
+                    let result = `${item.name}<br/>`;
+                    params.forEach(param => {
+                        const value = param.value;
+                        const percent = param.seriesName.includes('合格') ? item.qualifiedPercent : item.unqualifiedPercent;
+                        result += `${param.seriesName}: ${value.toLocaleString()} 吨 (${percent}%)<br/>`;
+                    });
+                    result += `总库存: ${item.total.toLocaleString()} 吨`;
+                    return result;
+                }
+            }, 
+            legend: {
+                data:['合格(吨)','不合格(吨)'],
+                top: 30,
+                left: 'center',
+                itemWidth: 22,
+                itemHeight: 14,
+                textStyle: {
+                    fontSize: 22,
+                    color: '#1f2937'
+                }
+            }, 
+            xAxis: { 
+                type: 'category', 
+                data: inventoryItems.map(i=>i.name), 
+                axisTick: { alignWithLabel: true },
+                axisLine: { lineStyle: { color: '#94a3b8', width: 1.5 } },
+                axisLabel: {
+                    rotate: 28,
+                    fontSize: 14,
+                    interval: 0,
+                    margin: 12,
+                    color: '#374151'
+                } 
+            }, 
+            yAxis: {
+                type: 'value',
+                name: '',
+                axisLabel: { fontSize: 18, color: '#4b5563' },
+                splitLine: { lineStyle: { color: '#e5e7eb', width: 1.4 } }
+            }, 
+            series: [
+                { 
+                    name:'合格(吨)', 
+                    type:'bar', 
+                    data: inventoryItems.map(i=>i.q), 
+                    color:'#10b981',
+                    stack: '库存',
+                    barWidth: '74%',
+                    barCategoryGap: '4%',
+                    clip: true,
+                    label: {
+                        show: true,
+                        position: 'inside',
+                        overflow: 'truncate',
+                        formatter: function(params) {
+                            return params.value > 0 ? `${params.value.toLocaleString()}吨` : '';
+                        },
+                        fontSize: 12,
+                        color: '#fff'
+                    }
+                }, 
+                { 
+                    name:'不合格(吨)', 
+                    type:'bar', 
+                    data: inventoryItems.map(i=>i.uq), 
+                    color:'#f97316',
+                    stack: '库存',
+                    barWidth: '74%',
+                    barCategoryGap: '4%',
+                    clip: true,
+                    label: {
+                        show: true,
+                        position: 'inside',
+                        overflow: 'truncate',
+                        formatter: function(params) {
+                            const item = inventoryData[params.dataIndex];
+                            if (item.uq > 0) {
+                                return `${item.unqualifiedPercent}%\n(${params.value.toLocaleString()}吨)`;
+                            } else {
+                                return '';
+                            }
+                        },
+                        fontSize: 12,
+                        color: '#fff'
+                    }
+                }
+            ] 
+        };
+    }
+    function renderInventory() { 
+        const dom = document.getElementById('inventoryChart');
+        if (!dom) return;
+        if(invChart) invChart.dispose(); 
+        invChart = echarts.init(dom); 
+        invChart.setOption(buildInventoryOption());
+    }
+    function renderInventoryFull() {
+        const dom = document.getElementById('inventoryFullContainer');
+        if (!dom) return;
+        if (invFullChart) invFullChart.dispose();
+        invFullChart = echarts.init(dom);
+        invFullChart.setOption(buildInventoryOption());
+    }
+    function renderOrders() {
+        const tbody = document.getElementById('orderTbody');
+        if (!tbody) return;
+        tbody.innerHTML = ordersRaw.map(r => {
+            const pctRaw = r.contractQty > 0 ? (r.received / r.contractQty) * 100 : 0;
+            const pct = Number.isFinite(pctRaw) ? pctRaw : 0;
+            const pctForBar = Math.max(0, Math.min(100, pct));
+            const fillColor = pct >= 100 ? "#22c55e" : "#3b82f6";
+            return `<tr>
+                <td>${r.contractNo}</td>
+                <td>${r.company}</td>
+                <td>${r.customer}</td>
+                <td>${r.material}</td>
+                <td>${r.signDate}</td>
+                <td>${r.termDays}</td>
+                <td>${r.contractQty}</td>
+                <td>${r.unitPrice}</td>
+                <td>${r.payType}</td>
+                <td>${r.executePeriod || "-"}</td>
+                <td>${r.received.toFixed(2)}</td>
+                <td>${r.remaining.toFixed(2)}</td>
+                <td>${r.remark || ""}</td>
+                <td class="order-progress-wrap">
+                    <div class="order-progress-track"><div class="order-progress-fill" style="width:${pctForBar.toFixed(1)}%;background:${fillColor};"></div></div>
+                    <div class="order-progress-text">${pct.toFixed(1)}%</div>
+                </td>
+                <td>${r.orderAmount}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    // ========== 基于xlsx完整表数据（废钢化学成分+保质期） ==========
+    const xlsxChemData = [
+        { name:"除锈废钢", img:"除锈废钢", C:"≤0.6", Si:"≤0.5", Mn:"——", P:"≤0.05", S:"≤0.02", Cu:"——", Cr:"≤0.10", Ni:"——", Mo:"——", Ti:"——", Al:"——", V:"——", B:"≤0.0012", Sn:"——", shelfLife:"1年" },
+        { name:"低锰压块", img:"低锰压块", C:"≤0.6", Si:"≤0.5", Mn:"≤0.25", P:"≤0.05", S:"≤0.02", Cu:"≤0.3", Cr:"≤0.05", Ni:"≤0.03", Mo:"≤0.03", Ti:"≤0.05", Al:"≤0.1", V:"≤0.02", B:"≤0.0012", Sn:"≤0.015", shelfLife:"1年" },
+        { name:"中锰边丝", img:"中锰边丝", C:"≤0.6", Si:"≤0.5", Mn:"≤0.35", P:"≤0.05", S:"≤0.02", Cu:"≤0.3", Cr:"≤0.05", Ni:"≤0.03", Mo:"≤0.03", Ti:"≤0.05", Al:"≤0.1", V:"≤0.02", B:"≤0.0012", Sn:"——", shelfLife:"1年" },
+        { name:"中锰散料", img:"中锰散料", C:"≤0.6", Si:"≤0.5", Mn:"≤0.35", P:"≤0.05", S:"≤0.02", Cu:"≤0.3", Cr:"≤0.05", Ni:"≤0.03", Mo:"≤0.03", Ti:"≤0.05", Al:"≤0.1", V:"≤0.02", B:"≤0.0012", Sn:"——", shelfLife:"1年" },
+        { name:"高Mn废钢", img:"高Mn废钢", C:"≤0.6", Si:"≤0.5", Mn:"≈0.8", P:"≤0.05", S:"≤0.02", Cu:"≤0.3", Cr:"≤0.05", Ni:"≤0.03", Mo:"≤0.03", Ti:"≤0.05", Al:"≤0.1", V:"≤0.02", B:"≤0.0012", Sn:"——", shelfLife:"1年" },
+        { name:"含铜废钢（球铁用）", img:"含铜废钢（球铁用）", C:"≤0.6", Si:"≤0.6", Mn:"≤0.3", P:"≤0.06", S:"≤0.06", Cu:"0.1-2.0", Cr:"≤0.05", Ni:"≤0.03", Mo:"≤0.03", Ti:"≤0.05", Al:"≤0.1", V:"≤0.02", B:"≤0.0012", Sn:"——", shelfLife:"1年" },
+        { name:"罐子料", img:"罐子料", C:"≤0.5", Si:"≤0.5", Mn:"≤0.25", P:"≤0.05", S:"≤0.02", Cu:"≤0.3", Cr:"≤0.05", Ni:"≤0.03", Mo:"≤0.03", Ti:"≤0.05", Al:"≤0.1", V:"≤0.02", B:"≤0.0012", Sn:"≤0.015", shelfLife:"1年" },
+        { name:"废铸件", img:"废铸件", C:"2.9～3.5", Si:"1.3～2.5", Mn:"0.4～1.5", P:"≤0.15", S:"≤0.15", Cu:"——", Cr:"≤0.2", Ni:"——", Mo:"——", Ti:"——", Al:"——", V:"——", B:"——", Sn:"——", shelfLife:"1年" },
+        { name:"含镍废钢（合金用）", img:"含镍废钢（合金用）", C:"≤0.6", Si:"≤0.6", Mn:"≤1.5", P:"≤0.06", S:"≤0.06", Cu:"≤0.3", Cr:"≤1.5", Ni:"0.1-5.0", Mo:"≤0.5", Ti:"≤0.05", Al:"≤0.1", V:"≤0.02", B:"≤0.0012", Sn:"——", shelfLife:"1年" }
+    ];
+    const chemKeys = ["C","Si","Mn","P","S","Cu","Cr","Ni","Mo","Ti","Al","V","B","Sn","shelfLife"];
+
+    function renderXlsxChemistryTable() {
+        const thead = document.getElementById('xlsxChemHead');
+        const tbody = document.getElementById('xlsxChemBody');
+        if(!thead) return;
+        thead.innerHTML = `<tr><th>料型</th>${chemKeys.map(k => k === 'shelfLife' ? '<th>保质期</th>' : `<th>${k}%</th>`).join('')}<th class="material-col">材料图</th></tr>`;
+        tbody.innerHTML = xlsxChemData.map(chem => {
+            const cells = chemKeys.map(k => {
+                let val = chem[k] || (k === 'shelfLife' ? chem.shelfLife : '——');
+                return `<td style="font-size:11px;">${val}</td>`;
+            }).join('');
+            return `<tr><td style="font-weight:600;">${chem.name}</td>${cells}<td class="material-col"><span class="material-icon-wrap"><i class="fas fa-image chem-img-icon" data-img="${chem.img}" style="cursor:pointer; font-size:1.1rem; color:#3b82f6;"></i></span></td></tr>`;
+        }).join('');
+        document.querySelectorAll('#xlsxChemTable .chem-img-icon').forEach(icon => {
+            icon.onclick = (e) => { e.stopPropagation(); showImagePreview(icon.dataset.img); };
+        });
+    }
+
+    function buildClaimFullTable() {
+        const tbody = document.getElementById('claimFullTbody');
+        if(!tbody) return;
+        tbody.innerHTML = claimsFull.map(c => {
+            const files = c[5].split(',');
+            const attachHtml = `<div class="attach-list">${files.map(f => `<span class="badge-attach" data-file="${f.trim()}"><i class="fas fa-paperclip"></i> ${f.includes('.png')?'现场图':'报告'}</span>`).join('')}</div>`;
+            return `<tr>${c.slice(0,5).map(v=>`<td>${v}</td>`).join('')}<td class="attach-col">${attachHtml}</td></tr>`;
+        }).join('');
+        document.querySelectorAll('#claimFullTbody .badge-attach').forEach(el => { el.onclick = (e) => { e.stopPropagation(); openClaimAttachment(el.dataset.file); }; });
+    }
+    function toFileUrl(pathOrUrl) {
+        if(!pathOrUrl) return pathOrUrl;
+        const p = String(pathOrUrl);
+        // Windows 绝对路径 -> file:///
+        if(/^[a-zA-Z]:[\\/]/.test(p)) return encodeURI(`file:///${p.replace(/\\/g,'/')}`);
+        return p;
+    }
+    function resolveAsset(key) {
+        return claimAttachmentMap[key] || materialImageMap[key] || key;
+    }
+    function openClaimAttachment(fileName) {
+        const mapped = toFileUrl(resolveAsset(fileName));
+        if(/\.(png|jpg|jpeg|gif|webp)$/i.test(mapped)) showImagePreview(fileName);
+        else window.open(mapped, '_blank');
+    }
+    function showImagePreview(fileKey) {
+        const modal = document.getElementById('imageModal');
+        const mapped = toFileUrl(resolveAsset(fileKey));
+        const isImage = /\.(png|jpg|jpeg|gif|webp)$/i.test(mapped);
+        document.getElementById('imagePreviewBody').innerHTML = isImage
+            ? `<img src="${mapped}" style="max-width:100%; max-height:60vh;" onerror="this.src='data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%20100%20100%22%3E%3Crect%20fill%3D%22%23ddd%22%20width%3D%22100%22%20height%3D%22100%22%2F%3E%3Ctext%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%20dy%3D%22.3em%22%3E%E6%97%A0%E5%9B%BE%E7%89%87%3C%2Ftext%3E%3C%2Fsvg%3E';">`
+            : `<div>📄 文档预览: ${fileKey}</div>`;
+        modal.style.display = 'block';
+    }
+
+    // 二级视图控制
+    const primaryDiv = document.getElementById('primaryView');
+    const elementDiv = document.getElementById('elementDetailView');
+    const claimDiv = document.getElementById('claimDetailView');
+    const monthlyChartDiv = document.getElementById('monthlyChartView');
+    const materialChartDiv = document.getElementById('materialChartView');
+    const inventoryFullDiv = document.getElementById('inventoryFullView');
+    const receivableDetailDiv = document.getElementById('receivableDetailView');
+
+    function renderReceivableMainCard() {
+        const dateEl = document.getElementById('receivableMainDate');
+        const bookEl = document.getElementById('receivableMainBookTotal');
+        const overdueEl = document.getElementById('receivableMainOverdueTotal');
+        if (dateEl) dateEl.textContent = monthWeekStr();
+        if (bookEl) bookEl.textContent = `¥ ${toWanFixed(totalAllBook)} 万`;
+        if (overdueEl) overdueEl.textContent = `¥ ${toWanFixed(totalAllOverdue)} 万`;
+        const container = document.getElementById('receivableMainChart');
+        if (!container) return;
+        if (receivableMainChart) receivableMainChart.dispose();
+        receivableMainChart = echarts.init(container);
+        receivableMainChart.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function(params) {
+                let res = params[0].axisValue + '<br/>';
+                let receivableTotal = 0, overdueTotal = 0;
+                params.forEach(p => {
+                    res += `${p.marker} ${p.seriesName}: ${p.value.toFixed(2)} 万元<br/>`;
+                    if (p.seriesName === '现汇应收' || p.seriesName === '承兑应收') receivableTotal += p.value;
+                    if (p.seriesName === '现汇逾期' || p.seriesName === '承兑逾期') overdueTotal += p.value;
+                });
+                res += `<strong>应收合计: ${receivableTotal.toFixed(2)} 万元</strong><br/>`;
+                res += `<strong>逾期合计: ${overdueTotal.toFixed(2)} 万元</strong>`;
+                return res;
+            } },
+            legend: { data: ['现汇应收', '承兑应收', '现汇逾期', '承兑逾期'], top: 0 },
+            xAxis: { type: 'category', data: companies },
+            yAxis: { name: '万元' },
+            series: [
+                { name: '现汇应收', type: 'bar', stack: 'receivable', data: spotBookData.map(v => v/10000), itemStyle: { color: '#3b82f6' }, clip: true, label: { show: true, position: 'inside', overflow: 'truncate', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                { name: '承兑应收', type: 'bar', stack: 'receivable', data: acceptBookData.map(v => v/10000), itemStyle: { color: '#10b981' }, clip: true, label: { show: true, position: 'inside', overflow: 'truncate', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                { name: '现汇逾期', type: 'bar', stack: 'overdue', data: spotOverdueData.map(v => v/10000), itemStyle: { color: '#ef4444' }, clip: true, label: { show: true, position: 'inside', overflow: 'truncate', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                { name: '承兑逾期', type: 'bar', stack: 'overdue', data: acceptOverdueData.map(v => v/10000), itemStyle: { color: '#f472b6' }, clip: true, label: { show: true, position: 'inside', overflow: 'truncate', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } }
+            ]
+        });
+    }
+
+    function renderReceivableDetail(tab) {
+        const container = document.getElementById('detailChartContainer');
+        if (!container) return;
+        if (activeReceivableDetailChart) activeReceivableDetailChart.dispose();
+        let data;
+        if (tab === 'fengchi') data = fengchiMerged;
+        else if (tab === 'changze') data = changzeMerged;
+        else if (tab === 'yaotong') data = yaotongMerged;
+        else if (tab === 'ferro') data = { clients: ferroClients, spotBook: ferroBook, acceptBook: new Array(ferroClients.length).fill(0), spotOverdue: ferroOverdue, acceptOverdue: new Array(ferroClients.length).fill(0) };
+        else if (tab === 'steel') data = { clients: steelClients, spotBook: new Array(steelClients.length).fill(0), acceptBook: steelBook, spotOverdue: new Array(steelClients.length).fill(0), acceptOverdue: steelOverdue };
+        else return;
+
+        const bookTotal = data.spotBook.reduce((a,b)=>a+b,0) + data.acceptBook.reduce((a,b)=>a+b,0);
+        const overdueTotal = data.spotOverdue.reduce((a,b)=>a+b,0) + data.acceptOverdue.reduce((a,b)=>a+b,0);
+        document.getElementById('detailBookTotal').innerHTML = '¥' + toWanFixed(bookTotal) + '万';
+        document.getElementById('detailOverdueTotal').innerHTML = '¥' + toWanFixed(overdueTotal) + '万';
+        document.getElementById('receivableDateBadge').innerHTML = `<span class="status-dot"></span> ${monthWeekStr()}`;
+
+        activeReceivableDetailChart = echarts.init(container);
+        activeReceivableDetailChart.setOption({
+            tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function(params) {
+                let res = params[0].axisValue + '<br/>';
+                let bookStack = 0, overdueStack = 0;
+                params.forEach(p => {
+                    if (p.seriesName === '现汇账面' || p.seriesName === '承兑账面') bookStack += p.value;
+                    if (p.seriesName === '现汇逾期' || p.seriesName === '承兑逾期') overdueStack += p.value;
+                    res += `${p.marker} ${p.seriesName}: ${p.value.toFixed(2)} 万元<br/>`;
+                });
+                res += `<strong>账面合计: ${bookStack.toFixed(2)} 万元</strong><br/>`;
+                res += `<strong>逾期合计: ${overdueStack.toFixed(2)} 万元</strong>`;
+                return res;
+            } },
+            legend: { data: ['现汇账面','承兑账面','现汇逾期','承兑逾期'], top: 0 },
+            xAxis: { type: 'category', data: data.clients, axisLabel: { rotate: 25, fontSize: 9, interval: 0 } },
+            yAxis: { name: '万元' },
+            series: [
+                { name: '现汇账面', type: 'bar', stack: 'book', data: data.spotBook.map(v=>v/10000), itemStyle: { color: '#3b82f6' }, clip: true, label: { show: true, position: 'inside', overflow: 'truncate', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                { name: '承兑账面', type: 'bar', stack: 'book', data: data.acceptBook.map(v=>v/10000), itemStyle: { color: '#10b981' }, clip: true, label: { show: true, position: 'inside', overflow: 'truncate', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                { name: '现汇逾期', type: 'bar', stack: 'overdue', data: data.spotOverdue.map(v=>v/10000), itemStyle: { color: '#ef4444' }, clip: true, label: { show: true, position: 'inside', overflow: 'truncate', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                { name: '承兑逾期', type: 'bar', stack: 'overdue', data: data.acceptOverdue.map(v=>v/10000), itemStyle: { color: '#f472b6' }, clip: true, label: { show: true, position: 'inside', overflow: 'truncate', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } }
+            ]
+        });
+    }
+
+    function bindReceivableTabs() {
+        document.querySelectorAll('.mini-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.getAttribute('data-tab');
+                if (!tab) return;
+                document.querySelectorAll('.mini-tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderReceivableDetail(tab);
+                activeReceivableDetailChart?.resize();
+            });
+        });
+    }
+
+    function showReceivableDetailPage() {
+        primaryDiv.style.display = 'none';
+        receivableDetailDiv.classList.add('active-view');
+        elementDiv.classList.remove('active-view');
+        claimDiv.classList.remove('active-view');
+        monthlyChartDiv.classList.remove('active-view');
+        materialChartDiv.classList.remove('active-view');
+        receivableDetailDiv.style.display = 'flex';
+        elementDiv.style.display = 'none';
+        claimDiv.style.display = 'none';
+        monthlyChartDiv.style.display = 'none';
+        materialChartDiv.style.display = 'none';
+        const activeBtn = document.querySelector('.mini-tab-btn.active');
+        const activeTab = activeBtn ? activeBtn.getAttribute('data-tab') : 'fengchi';
+        renderReceivableDetail(activeTab || 'fengchi');
+        setTimeout(() => activeReceivableDetailChart?.resize(), 100);
+    }
+
+    function showPrimary() {
+        primaryDiv.style.display = 'flex';
+        elementDiv.classList.remove('active-view');
+        claimDiv.classList.remove('active-view');
+        monthlyChartDiv.classList.remove('active-view');
+        materialChartDiv.classList.remove('active-view');
+        inventoryFullDiv.classList.remove('active-view');
+        receivableDetailDiv.classList.remove('active-view');
+        elementDiv.style.display = 'none';
+        claimDiv.style.display = 'none';
+        monthlyChartDiv.style.display = 'none';
+        materialChartDiv.style.display = 'none';
+        inventoryFullDiv.style.display = 'none';
+        receivableDetailDiv.style.display = 'none';
+        setTimeout(()=>{ ringYearChart?.resize(); ringMarChart?.resize(); invChart?.resize(); receivableMainChart?.resize(); },100);
+    }
+    function showInventoryFullPage() {
+        primaryDiv.style.display = 'none';
+        inventoryFullDiv.classList.add('active-view');
+        elementDiv.classList.remove('active-view');
+        claimDiv.classList.remove('active-view');
+        monthlyChartDiv.classList.remove('active-view');
+        materialChartDiv.classList.remove('active-view');
+        receivableDetailDiv.classList.remove('active-view');
+        inventoryFullDiv.style.display = 'flex';
+        elementDiv.style.display = 'none';
+        claimDiv.style.display = 'none';
+        monthlyChartDiv.style.display = 'none';
+        materialChartDiv.style.display = 'none';
+        receivableDetailDiv.style.display = 'none';
+        renderInventoryFull();
+        setTimeout(() => invFullChart?.resize(), 100);
+    }
+    function showElementPage() {
+        primaryDiv.style.display = 'none';
+        elementDiv.classList.add('active-view');
+        claimDiv.classList.remove('active-view');
+        monthlyChartDiv.classList.remove('active-view');
+        materialChartDiv.classList.remove('active-view');
+        inventoryFullDiv.classList.remove('active-view');
+        receivableDetailDiv.classList.remove('active-view');
+        elementDiv.style.display = 'flex';
+        claimDiv.style.display = 'none';
+        monthlyChartDiv.style.display = 'none';
+        materialChartDiv.style.display = 'none';
+        inventoryFullDiv.style.display = 'none';
+        receivableDetailDiv.style.display = 'none';
+        buildChemTableLegacy();
+    }
+    function showClaimPage() {
+        primaryDiv.style.display = 'none';
+        claimDiv.classList.add('active-view');
+        elementDiv.classList.remove('active-view');
+        monthlyChartDiv.classList.remove('active-view');
+        materialChartDiv.classList.remove('active-view');
+        inventoryFullDiv.classList.remove('active-view');
+        receivableDetailDiv.classList.remove('active-view');
+        claimDiv.style.display = 'flex';
+        elementDiv.style.display = 'none';
+        monthlyChartDiv.style.display = 'none';
+        materialChartDiv.style.display = 'none';
+        inventoryFullDiv.style.display = 'none';
+        receivableDetailDiv.style.display = 'none';
+        buildClaimFullTable();
+        renderXlsxChemistryTable();
+    }
+
+    function showMonthlyChartPage() {
+        primaryDiv.style.display = 'none';
+        monthlyChartDiv.classList.add('active-view');
+        materialChartDiv.classList.remove('active-view');
+        elementDiv.classList.remove('active-view');
+        claimDiv.classList.remove('active-view');
+        inventoryFullDiv.classList.remove('active-view');
+        receivableDetailDiv.classList.remove('active-view');
+        monthlyChartDiv.style.display = 'flex';
+        materialChartDiv.style.display = 'none';
+        elementDiv.style.display = 'none';
+        claimDiv.style.display = 'none';
+        inventoryFullDiv.style.display = 'none';
+        receivableDetailDiv.style.display = 'none';
+
+        const container = document.getElementById('monthlyChartContainer');
+        if(secondaryEchart) secondaryEchart.dispose();
+        secondaryEchart = echarts.init(container);
+        secondaryEchart.setOption({
+            tooltip:{trigger:'axis'},
+            legend:{data:['计划销量','实际销量']},
+            xAxis:{type:'category', data:['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'], axisLabel:{rotate:0}},
+            yAxis:{type:'value'},
+            series:[
+                {name:'计划销量',type:'bar',data:monthlyPlan,color:'#3b82f6',clip:true,label:{show:true,position:'inside',overflow:'truncate',formatter:p=>p.value>0?String(Math.round(p.value)):''}},
+                {name:'实际销量',type:'bar',data:monthlyActual,color:'#f97316',clip:true,label:{show:true,position:'inside',overflow:'truncate',formatter:p=>p.value>0?String(Math.round(p.value)):''}}
+            ]
+        });
+        setTimeout(()=>secondaryEchart.resize(),100);
+        
+        // 渲染两个Excel表格
+        renderReceiptTable();
+        renderWeighingTable();
+    }
+
+    function showMaterialChartPage() {
+        primaryDiv.style.display = 'none';
+        materialChartDiv.classList.add('active-view');
+        monthlyChartDiv.classList.remove('active-view');
+        elementDiv.classList.remove('active-view');
+        claimDiv.classList.remove('active-view');
+        inventoryFullDiv.classList.remove('active-view');
+        receivableDetailDiv.classList.remove('active-view');
+        materialChartDiv.style.display = 'flex';
+        monthlyChartDiv.style.display = 'none';
+        elementDiv.style.display = 'none';
+        claimDiv.style.display = 'none';
+        inventoryFullDiv.style.display = 'none';
+        receivableDetailDiv.style.display = 'none';
+
+        const container = document.getElementById('materialChartContainer');
+        if(secondaryEchart) secondaryEchart.dispose();
+        secondaryEchart = echarts.init(container);
+        const materials = Object.keys(materialPlanMap);
+        secondaryEchart.setOption({
+            tooltip:{trigger:'axis'},
+            legend:{data:['计划销量','实际销量']},
+            xAxis:{type:'category', data:materials, axisLabel:{rotate:45, fontSize:10, interval:0}},
+            yAxis:{type:'value'},
+            series:[
+                {name:'计划销量',type:'bar',data:materials.map(m=>materialPlanMap[m]),color:'#3b82f6',clip:true,label:{show:true,position:'inside',overflow:'truncate',formatter:p=>p.value>0?String(Math.round(p.value)):''}},
+                {name:'实际销量',type:'bar',data:materials.map(m=>materialActualMap[m]||0),color:'#ef4444',clip:true,label:{show:true,position:'inside',overflow:'truncate',formatter:p=>p.value>0?String(Math.round(p.value)):''}}
+            ]
+        });
+        setTimeout(()=>secondaryEchart.resize(),100);
+    }
+    function buildChemTableLegacy() { /* 保留原有化学成分表构建 */ const thead = document.getElementById('chemTableHead'); const tbody = document.getElementById('chemTableBody'); const legacyKeys = ["C","Si","Mn","P","S","Cu","Cr","Ni","Mo","Ti","Al","V","B","Sn"]; thead.innerHTML = `<tr><th>料型</th>${legacyKeys.map(k=>`<th>${k}%</th>`).join('')}<th>材料图</th></tr>`; tbody.innerHTML = xlsxChemData.map(chem => `<tr><td>${chem.name}</td>${legacyKeys.map(k=>`<td>${chem[k]||'——'}</td>`).join('')}<td><i class="fas fa-image chem-img" data-img="${chem.img}"></i></td></tr>`).join(''); document.querySelectorAll('#chemFullTable .chem-img').forEach(icon=>{ icon.onclick=(e)=>{ e.stopPropagation(); showImagePreview(icon.dataset.img); }; }); }
+
+    // ======================= 4.12.xlsx 数据 =======================
+    const receiptData = [
+        ["112604120024","","大磅房","收货过磅单","晋MA2687","20260412","20260412","101833","110111","铸造铁18#","18#","270","山西浩之顺商贸有限公司","50.54","15.49","0","0.05","0","35.05","0","35","资材部重工库房","35.26","警告：上次皮重：14.9","1","","032604120027","","王泽峰","大磅房","","35"],
+        ["小  计","","","","","","","","","","","","","50.54","15.49","0","0.05","0","35.05","0","35","","35.26","","1","","","","","","","35"],
+        ["112604120008","","大磅房","收货过磅单","晋LB7955","20260412","20260412","084308","091819","铸造生铁12#","","270","山西浩之顺商贸有限公司","54.97","15.9","0","0.06","0","39.07","0","39.01","资材部重工库房","39.41","","1","","032604120003","","王泽峰","大磅房","","39.01"],
+        ["小  计","","","","","","","","","","","","","54.97","15.9","0","0.06","0","39.07","0","39.01","","39.41","","1","","","","","","","39.01"],
+        ["112604120037","","大磅房","收货过磅单","晋L77375","20260412","20260412","140712","145414","废品铸件","","0513","天津（海尔）","17.75","15.33","0","0.21","0","2.42","0","2.21","精密A库","0","","1","","032604120040","","营销中心1","大磅房","","2.21"],
+        ["小  计","","","","","","","","","","","","","17.75","15.33","0","0.21","0","2.42","0","2.21","","0","","1","","","","","","","2.21"],
+        ["112604110064","","大磅房","收货过磅单","晋L3456","20260411","20260412","153226","103618","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.71","17.39","0","0.08","0","13.32","0","13.24","汽车专线垂直线","0","","1","","032604110022","","李彦","大磅房","","13.24"],
+        ["112604120000","","大磅房","收货过磅单","晋L73813","20260412","20260412","075912","105049","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","28.79","14.33","0","0.08","0","14.46","0","14.38","汽车三厂一熔化","0","","1","","032604110056","","李彦","大磅房","","14.38"],
+        ["112604120001","","大磅房","收货过磅单","晋L3456","20260412","20260412","080437","093032","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","29.99","17.39","0","0.08","0","12.6","0","12.52","131线","0","","1","","032604110016","","李彦","大磅房","","12.52"],
+        ["112604120002","","大磅房","收货过磅单","晋L73813","20260412","20260412","081149","105107","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","28.18","14.33","0","0.08","0","13.85","0","13.77","三期汽车件","0","","1","","032604110057","","李彦","大磅房","","13.77"],
+        ["112604120003","","大磅房","收货过磅单","晋L3456","20260412","20260412","081719","093015","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.44","17.39","0","0.08","0","13.05","0","12.97","231线","0","","1","","032604110015","","李彦","大磅房","","12.97"],
+        ["112604120004","","大磅房","收货过磅单","晋L73813","20260412","20260412","082404","105124","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","28.86","14.33","0","0.08","0","14.53","0","14.45","131-X线","0","","1","","032604110058","","李彦","大磅房","","14.45"],
+        ["112604120005","","大磅房","收货过磅单","晋L3456","20260412","20260412","083121","093000","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.44","17.39","0","0.08","0","13.05","0","12.97","231线","0","","1","","032604110014","","李彦","大磅房","","12.97"],
+        ["112604120006","","大磅房","收货过磅单","晋L73813","20260412","20260412","083747","105142","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","28.49","14.33","0","0.08","0","14.16","0","14.08","131-X线","0","","1","","032604110059","","李彦","大磅房","","14.08"],
+        ["112604120009","","大磅房","收货过磅单","晋L3456","20260412","20260412","084904","093049","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","31.49","17.39","0","0.08","0","14.1","0","14.02","231线","0","","1","","032604090028","","李彦","大磅房","","14.02"],
+        ["112604120013","","大磅房","收货过磅单","晋L73813","20260412","20260412","085645","104924","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","29.4","14.32","0","0.08","0","15.08","0","15","三期汽车件","0","","1","","032604110060","","李彦","大磅房","","15"],
+        ["112604120014","","大磅房","收货过磅单","晋L3456","20260412","20260412","090643","093106","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","31.37","17.39","0","0.08","0","13.98","0","13.9","231线","0","","1","","032604110081","","李彦","大磅房","","13.9"],
+        ["112604120015","","大磅房","收货过磅单","晋L73813","20260412","20260412","091656","105032","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","29.25","14.33","0","0.08","0","14.92","0","14.84","三期汽车件","0","","1","","032604110061","","李彦","大磅房","","14.84"],
+        ["112604120016","","大磅房","收货过磅单","晋L3456","20260412","20260412","092233","093120","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.12","17.39","0","0.08","0","12.73","0","12.65","131线","0","","1","","032604110080","","李彦","大磅房","","12.65"],
+        ["112604120018","","大磅房","收货过磅单","晋L73813","20260412","20260412","093414","105014","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","29.28","14.33","0","0.08","0","14.95","0","14.87","三期汽车件","0","","1","","032604110062","","李彦","大磅房","","14.87"],
+        ["112604120019","","大磅房","收货过磅单","晋L3456","20260412","20260412","094316","103635","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.73","17.39","0","0.08","0","13.34","0","13.26","汽车三厂一熔化","0","","1","","032604110079","","李彦","大磅房","","13.26"],
+        ["112604120020","","大磅房","收货过磅单","晋L73813","20260412","20260412","095110","104939","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","29.15","14.32","0","0.08","0","14.83","0","14.75","131-X线","0","","1","","032604110063","","李彦","大磅房","","14.75"],
+        ["112604120021","","大磅房","收货过磅单","晋L3456","20260412","20260412","095856","103651","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","31.14","17.39","0","0.08","0","13.75","0","13.67","231线","0","","1","","032604110078","","李彦","大磅房","","13.67"],
+        ["112604120023","","大磅房","收货过磅单","晋L73813","20260412","20260412","100945","104957","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","28.94","14.33","0","0.08","0","14.61","0","14.53","131-X线","0","","1","","032604110033","","李彦","大磅房","","14.53"],
+        ["112604120026","","大磅房","收货过磅单","晋L3456","20260412","20260412","102835","103708","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.61","17.39","0","0.08","0","13.22","0","13.14","131线","0","","1","","032604110076","","李彦","大磅房","","13.14"],
+        ["112604120028","","大磅房","收货过磅单","晋L73813","20260412","20260412","103911","105201","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","27.98","14.33","0","0.08","0","13.65","0","13.57","汽车三厂二熔化","0","","1","","032604110032","","李彦","大磅房","","13.57"],
+        ["112604120034","","大磅房","收货过磅单","晋L3456","20260412","20260412","134916","140938","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.97","17.39","0","0.08","0","13.58","0","13.5","汽车三厂二熔化","0","","1","","032604110075","","李彦","大磅房","","13.5"],
+        ["112604120035","","大磅房","收货过磅单","晋L3456","20260412","20260412","140358","140954","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","31.01","17.39","0","0.08","0","13.62","0","13.54","汽车三厂二熔化","0","","1","","032604110074","","李彦","大磅房","","13.54"],
+        ["112604120039","","大磅房","收货过磅单","晋L73813","20260412","20260412","142535","154031","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","29.47","14.46","0","0.08","0","15.01","0","14.93","汽车专线垂直线","0","","1","","032604110031","","李彦","大磅房","","14.93"],
+        ["112604120041","","大磅房","收货过磅单","晋L3456","20260412","20260412","143418","152619","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.13","17.54","0","0.08","0","12.59","0","12.51","231线","0","","1","","032604110021","","李彦","大磅房","","12.51"],
+        ["112604120043","","大磅房","收货过磅单","晋L73813","20260412","20260412","144120","154012","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","28.93","14.46","0","0.08","0","14.47","0","14.39","汽车专线垂直线","0","","1","","032604120025","","李彦","大磅房","","14.39"],
+        ["112604120045","","大磅房","收货过磅单","晋L3456","20260412","20260412","145156","152634","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.24","17.54","0","0.08","0","12.7","0","12.62","131线","0","","1","","032604110072","","李彦","大磅房","","12.62"],
+        ["112604120046","","大磅房","收货过磅单","晋L73813","20260412","20260412","150920","153956","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","28.16","14.46","0","0.08","0","13.7","0","13.62","汽车专线垂直线","0","","1","","032604120024","","李彦","大磅房","","13.62"],
+        ["112604120050","","大磅房","收货过磅单","晋L3456","20260412","20260412","152015","152651","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","30.32","17.54","0","0.08","0","12.78","0","12.7","231线","0","","1","","032604110071","","李彦","大磅房","","12.7"],
+        ["112604120053","","大磅房","收货过磅单","晋L73813","20260412","20260412","153032","154048","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","29.5","14.46","0","0.08","0","15.04","0","14.96","三期","0","","1","","032604120023","","李彦","大磅房","","14.96"],
+        ["112604120054","","大磅房","收货过磅单","晋L53411","20260412","20260412","154339","205536","（加工）废钢罐子低锰小料","低锰小料（加工）","0470","天津耀通循环科技有限公司","49.98","15.53","0","0.24","0","34.45","0","34.21","三期汽车件","35.62","","1","","032604120055","","李彦","大磅房","","34.21"],
+        ["小  计","","","","","","","","","","","","","914.07","477.95","0","2.56","0","436.12","0","433.56","","35.62","","30","","","","","","","433.56"],
+        ["112604120029","","大磅房","收货过磅单","晋L09498D","20260412","20260412","112650","161444","边丝压块","","0514","临汾市侯马经济开发区力信科技有限公司","48.76","19.99","0","0.06","0","28.77","0","28.71","三期","28.9","","1","","032604120030","","李彦","大磅房","","28.71"],
+        ["112604120048","","大磅房","收货过磅单","晋L03895D","20260412","20260412","151338","161729","边丝压块","","0514","临汾市侯马经济开发区力信科技有限公司","48.96","19.99","0","0.06","0","28.97","0","28.91","三期","29.14","","1","","032604120033","","李彦","大磅房","","28.91"],
+        ["小  计","","","","","","","","","","","","","97.72","39.98","0","0.12","0","57.74","0","57.62","","58.04","","2","","","","","","","57.62"],
+        ["112604120012","","大磅房","收货过磅单","晋L16866","20260412","20260412","085430","090526","废钢管架料","","0430","山西丰驰再生资源有限公司","35.24","12.97","0","0.08","0","22.27","0","22.19","资材部","23","","1","","032604120006","","王泽峰","大磅房","","22.19"],
+        ["112604120027","","大磅房","收货过磅单","晋L16866","20260412","20260412","102942","104044","废钢管架料","","0430","山西丰驰再生资源有限公司","35.9","12.97","0","0.08","0","22.93","0","22.85","资材部","24","","1","","032604120029","","王泽峰","大磅房","","22.85"],
+        ["112604120038","","大磅房","收货过磅单","晋L16866","20260412","20260412","142241","143515","废钢管架料","","0430","山西丰驰再生资源有限公司","35.89","12.98","0","0.08","0","22.91","0","22.83","资材部","24","","1","","032604120041","","王泽峰","大磅房","","22.83"],
+        ["112604120055","","大磅房","收货过磅单","晋L16866","20260412","20260412","161120","164815","废钢管架料","","0430","山西丰驰再生资源有限公司","35.96","12.97","0","0.08","0","22.99","0","22.91","资材部","24","","1","","032604120056","","王泽峰","大磅房","","22.91"],
+        ["小  计","","","","","","","","","","","","","142.99","51.89","0","0.32","0","91.1","0","90.78","","95","","4","","","","","","","90.78"],
+        ["112604110074","","大磅房","收货过磅单","晋L3456","20260411","20260412","170037","074822","合金废钢含铜","含铜","0465","山西昌泽循环科技有限公司","22.76","17.4","0","0.01","0","5.36","0","5.35","三期","0","","1","","032604090050","","李彦","大磅房","","5.35"],
+        ["小  计","","","","","","","","","","","","","22.76","17.4","0","0.01","0","5.36","0","5.35","","0","","1","","","","","","","5.35"],
+        ["112604120030","","大磅房","收货过磅单","晋M02616D","20260412","20260412","133847","142653","增碳剂","C≥98%，S≤0.25","0364","山西鼎安恒新能源材料有限公司","50.8","15.96","0","0.3","0","34.84","0","34.54","圣德曼资材部","35.01","","1","","032604120031","","王泽峰","大磅房","","34.54"],
+        ["小  计","","","","","","","","","","","","","50.8","15.96","0","0.3","0","34.84","0","34.54","","35.01","","1","","","","","","","34.54"],
+        ["112604120007","","大磅房","收货过磅单","晋L21506","20260412","20260412","084120","093234","粗砂擦洗砂","粗砂","0015","滦平东伟","49.61","16.17","0.04","0.2","0","33.4","0","33.2","汽车件分厂冷芯车间","33.4","","1","","032604120002","","王泽峰","大磅房","","33.2"],
+        ["112604120011","","大磅房","收货过磅单","晋L79180","20260412","20260412","085323","095608","粗砂擦洗砂","粗砂","0015","滦平东伟","49.24","16.08","0.02","0.2","0","33.14","0","32.94","圣德曼冷芯","33.14","","1","","032604120001","","王泽峰","大磅房","","32.94"],
+        ["小  计","","","","","","","","","","","","","98.85","32.25","0.06","0.4","0","66.54","0","66.14","","66.54","","2","","","","","","","66.14"],
+        ["112604120051","","大磅房","收货过磅单","晋L71767","20260412","20260412","152141","163842","擦洗砂细沙","细沙","0015","滦平东伟","49.52","16.27","0","0.2","0","33.25","0","33.05","131-X线","33.32","","1","","032604120045","","李彦","大磅房","","33.05"],
+        ["小  计","","","","","","","","","","","","","49.52","16.27","0","0.2","0","33.25","0","33.05","","33.32","","1","","","","","","","33.05"],
+        ["112604120031","","大磅房","收货过磅单","晋L62940","20260412","20260412","134016","144454","覆膜砂实","实芯","0015","滦平东伟","48.64","15.59","0","0.2","0","33.05","0","32.85","圣德曼制芯","33.1","","1","","032604120032","","王泽峰","大磅房","","32.85"],
+        ["112604120042","","大磅房","收货过磅单","晋LD4826","20260412","20260412","143634","153800","覆膜砂实","实芯","0015","滦平东伟","50","15.54","0","0.2","0","34.46","0","34.26","圣德曼制芯","34.58","","1","","032604120042","","李彦","大磅房","","34.26"],
+        ["小  计","","","","","","","","","","","","","98.64","31.13","0","0.4","0","67.51","0","67.11","","67.68","","2","","","","","","","67.11"],
+        ["112604120052","","大磅房","收货过磅单","浙AE7381","20260412","20260412","152319","152422","覆膜砂实","实芯","0346","山西东伟新材料科技有限公司","6.17","4.67","0","0","0","1.5","0","1.5","V法制芯","0","","1","","032604120043","","李彦","大磅房","","1.5"],
+        ["小  计","","","","","","","","","","","","","6.17","4.67","0","0","0","1.5","0","1.5","","0","","1","","","","","","","1.5"],
+        ["112604120010","","大磅房","收货过磅单","晋LJ1331","20260412","20260412","085111","102317","膨润土","","0417","建平唯科东明矿业有限公司","58.54","15.01","0","0.2","0","43.53","0","43.33","圣德曼膨润土","43.78","警告：上次皮重：17.04","1","","032604120004","","李彦","大磅房","","43.33"],
+        ["112604120017","","大磅房","收货过磅单","晋LE1886","20260412","20260412","092816","105855","膨润土","","0417","建平唯科东明矿业有限公司","58.46","16.65","0","0.25","0","41.81","0","41.56","圣德曼膨润土","41.97","","1","","032604120010","","王泽峰","大磅房","","41.56"],
+        ["112604120022","","大磅房","收货过磅单","晋L78416","20260412","20260412","100554","150728","膨润土","","0417","建平唯科东明矿业有限公司","53.19","14.38","0","0.2","0","38.81","0","38.61","131-X线","39.04","","1","","032604120026","","李彦","大磅房","","38.61"],
+        ["112604120025","","大磅房","收货过磅单","晋L53650","20260412","20260412","101957","133710","膨润土","","0417","建平唯科东明矿业有限公司","55.06","16.13","0","0.25","0","38.93","0","38.68","圣德曼膨润土","39.18","","1","","032604120028","","王泽峰","大磅房","","38.68"],
+        ["112604120032","","大磅房","收货过磅单","晋LJ1331","20260412","20260412","134332","145631","膨润土","","0417","建平唯科东明矿业有限公司","58.39","14.99","0.06","0.25","0","43.34","0","43.09","圣德曼膨润土","43.34","","1","","032604120034","","王泽峰","大磅房","","43.09"],
+        ["112604120033","","大磅房","收货过磅单","晋LE1886","20260412","20260412","134605","153507","膨润土","","0417","建平唯科东明矿业有限公司","58.58","16.61","0.07","0.2","0","41.9","0","41.7","圣德曼膨润土","41.9","","1","","032604120035","","李彦","大磅房","","41.7"],
+        ["112604120049","","大磅房","收货过磅单","晋L53650","20260412","20260412","151647","162215","膨润土","","0417","建平唯科东明矿业有限公司","54.99","16.12","0","0.25","0","38.87","0","38.62","圣德曼膨润土","39.06","","1","","032604120044","","王泽峰","大磅房","","38.62"],
+        ["112604120058","","大磅房","收货过磅单","晋LJ1331","20260412","20260412","164635","174840","膨润土","","0417","建平唯科东明矿业有限公司","58.53","14.99","0","0.2","0","43.54","0","43.34","圣德曼膨润土","43.76","","1","","032604120059","","李彦","大磅房","","43.34"],
+        ["112604120059","","大磅房","收货过磅单","晋LE1886","20260412","20260412","170715","182814","膨润土","","0417","建平唯科东明矿业有限公司","58.46","16.62","0","0.2","0","41.84","0","41.64","圣德曼膨润土","41.94","","1","","032604120060","","李彦","大磅房","","41.64"],
+        ["小  计","","","","","","","","","","","","","514.2","141.5","0.13","2","0","372.57","0","370.57","","373.97","","9","","","","","","","370.57"],
+        ["112604120057","","大磅房","收货过磅单","晋LJE710","20260412","20260412","163225","171902","0# IV车用柴油","0# IV","0458","襄汾县元丰加油站","5.43","5.26","0","0","0","0.17","0","0.17","资材部","0","","1","","032604120058","","王小敏","大磅房","","0.17"],
+        ["小  计","","","","","","","","","","","","","5.43","5.26","0","0","0","0.17","0","0.17","","0","","1","","","","","","","0.17"],
+        ["112604120040","","大磅房","收货过磅单","晋LX2103","20260412","20260412","143015","144639","镀锌管","","0192","宝舜建材","17.98","17.43","0","0","0","0.55","0","0.55","圣德曼资材部","0","警告：上次皮重：17.99","1","","032604120036","","王小敏","大磅房","","0.55"],
+        ["小  计","","","","","","","","","","","","","17.98","17.43","0","0","0","0.55","0","0.55","","0","","1","","","","","","","0.55"],
+        ["112604120044","","大磅房","收货过磅单","晋LX2103","20260412","20260412","144735","151034","钢板","","0192","宝舜建材","17.43","13.61","0","0","0","3.82","0","3.82","资材部","0","警告：上次皮重：17.43","1","","032604120038","","王小敏","大磅房","","3.82"],
+        ["小  计","","","","","","","","","","","","","17.43","13.61","0","0","0","3.82","0","3.82","","0","","1","","","","","","","3.82"],
+        ["112604120036","","大磅房","收货过磅单","晋LX2103","20260412","20260412","140515","142907","角钢","","0192","宝舜建材","18.79","17.99","0","0","0","0.8","0","0.8","资材部","0","警告：上次皮重：7.05","1","","032604120037","","王小敏","大磅房","","0.8"],
+        ["小  计","","","","","","","","","","","","","18.79","17.99","0","0","0","0.8","0","0.8","","0","","1","","","","","","","0.8"],
+        ["112604120047","","大磅房","收货过磅单","晋LX2103","20260412","20260412","151136","154734","钢板","1.8m","0192","宝舜建材","13.6","7.11","0","0","0","6.49","0","6.49","资材部","0","警告：上次皮重：13.61","1","","032604120039","","王小敏","大磅房","","6.49"],
+        ["小  计","","","","","","","","","","","","","13.6","7.11","0","0","0","6.49","0","6.49","","0","","1","","","","","","","6.49"],
+        ["合  计","","","","","","","","","","","","","2192.21","937.12","0.19","6.63","0","1254.9","0","1248.27","","839.85","","61","","","","","","","1248.27"]
+    ];
+
+    const receiptHeaders = ["单据编号","","司磅地点","单据类型","车辆编号","入场日期","过磅日期","入场时间","出场时间","货物名称","规格型号","供应商编号","供应商","毛重","皮重","包装物重","扣杂","扣重","净重","其他","结算数量","收货仓库","原发数","备注","车数","合同编号","派车证号","通知单号","收货人","出场司磅员","修改备注","实收数量"];
+    const RECEIPT_DATE_INDEX = 6;
+    const RECEIPT_SUPPLIER_INDEX = 12;
+    const RECEIPT_DOC_INDEX = 0;
+    const receiptFilterState = { date: 'ALL', supplier: 'ALL' };
+
+    function formatReceiptDate(rawDate) {
+        const text = String(rawDate || '').trim();
+        if (!/^\d{8}$/.test(text)) return text;
+        return `${text.slice(0,4)}-${text.slice(4,6)}-${text.slice(6,8)}`;
+    }
+
+    function isReceiptSummaryRow(row) {
+        const key = String(row[RECEIPT_DOC_INDEX] || '').replace(/\s+/g, '');
+        return key === '小计' || key === '合计';
+    }
+
+    function getReceiptFilteredRows() {
+        return receiptData.filter(row => {
+            if (isReceiptSummaryRow(row)) return false;
+            const rowDate = String(row[RECEIPT_DATE_INDEX] || '').trim();
+            const rowSupplier = String(row[RECEIPT_SUPPLIER_INDEX] || '').trim();
+            const dateMatched = receiptFilterState.date === 'ALL' || rowDate === receiptFilterState.date;
+            const supplierMatched = receiptFilterState.supplier === 'ALL' || rowSupplier === receiptFilterState.supplier;
+            return dateMatched && supplierMatched;
+        });
+    }
+
+    function renderReceiptFilterOptions() {
+        const dateSelect = document.getElementById('receiptDateFilter');
+        const supplierSelect = document.getElementById('receiptSupplierFilter');
+        if (!dateSelect || !supplierSelect) return;
+
+        const dateSet = new Set();
+        const supplierSet = new Set();
+        receiptData.forEach(row => {
+            if (isReceiptSummaryRow(row)) return;
+            const date = String(row[RECEIPT_DATE_INDEX] || '').trim();
+            const supplier = String(row[RECEIPT_SUPPLIER_INDEX] || '').trim();
+            if (date) dateSet.add(date);
+            if (supplier) supplierSet.add(supplier);
+        });
+
+        const dateOptions = Array.from(dateSet).sort();
+        const supplierOptions = Array.from(supplierSet).sort((a, b) => a.localeCompare(b, 'zh-CN'));
+
+        dateSelect.innerHTML = `<option value="ALL">全部日期</option>${dateOptions.map(d => `<option value="${d}">${formatReceiptDate(d)}</option>`).join('')}`;
+        supplierSelect.innerHTML = `<option value="ALL">全部供应商</option>${supplierOptions.map(s => `<option value="${s}">${s}</option>`).join('')}`;
+
+        if (!dateOptions.includes(receiptFilterState.date)) receiptFilterState.date = 'ALL';
+        if (!supplierOptions.includes(receiptFilterState.supplier)) receiptFilterState.supplier = 'ALL';
+        dateSelect.value = receiptFilterState.date;
+        supplierSelect.value = receiptFilterState.supplier;
+    }
+
+    function bindReceiptFilterEvents() {
+        const dateSelect = document.getElementById('receiptDateFilter');
+        const supplierSelect = document.getElementById('receiptSupplierFilter');
+        if (!dateSelect || !supplierSelect || dateSelect.dataset.bound === '1') return;
+
+        dateSelect.addEventListener('change', () => {
+            receiptFilterState.date = dateSelect.value;
+            renderReceiptTable();
+        });
+        supplierSelect.addEventListener('change', () => {
+            receiptFilterState.supplier = supplierSelect.value;
+            renderReceiptTable();
+        });
+        dateSelect.dataset.bound = '1';
+        supplierSelect.dataset.bound = '1';
+    }
+
+    // ======================= 秦壁4.12.xlsx 数据 =======================
+    const weighingData = [
+        ["WG2026041200094","WX1775966510780","晋LZ9051","田彬","（加工）废钢罐子低锰小料","低锰小料（加工）","采购","天津耀通循环科技有限公司","华翔（洪洞）智能科技有限公司","49.74","15.62","34.12","0.1","34.02","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 13:37:39","2026-04-12 21:40:58","2026-04-12 13:37:39","2026-04-12 21:40:58","2026-04-12 21:40:58","","35.21","0"],
+        ["WG2026041200093","WX1775966484276","晋LF3810","田彬","（加工）废钢罐子低锰小料","低锰小料（加工）","采购","天津耀通循环科技有限公司","华翔（洪洞）智能科技有限公司","49.54","15.84","33.7","0.1","33.6","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 13:35:45","2026-04-12 17:47:11","2026-04-12 13:35:45","2026-04-12 17:47:11","2026-04-12 17:47:11","","34.8","0"],
+        ["WG2026041200097","WX1775973967466","晋L21506","","擦洗砂细沙","细沙","采购","山西东伟新材料科技有限公司","华翔（洪洞）智能科技有限公司","50.38","16.23","34.15","0.2","33.95","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 14:06:19","2026-04-12 14:44:55","2026-04-12 14:06:19","2026-04-12 14:44:55","2026-04-12 14:44:55","","34.18","0"],
+        ["WG2026041200096","WX1775973871121","晋L79180","","擦洗砂细沙","细沙","采购","山西东伟新材料科技有限公司","华翔（洪洞）智能科技有限公司","48.42","16.09","32.33","0.2","32.13","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 14:04:45","2026-04-12 14:43:15","2026-04-12 14:04:45","2026-04-12 14:43:15","2026-04-12 14:43:15","","32.33","0"],
+        ["WG2026041200061","WX1775907225159","晋L54913","","覆膜砂实","实芯","采购","山西东伟新材料科技有限公司","华翔（洪洞）智能科技有限公司","48.7","15.65","33.05","0.2","32.85","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:16:24","2026-04-12 10:47:11","2026-04-12 09:16:24","2026-04-12 10:47:11","2026-04-12 10:47:11","","33.16","0"],
+        ["WG2026041100120","WX1775894233949","晋D03804D","","高锰压块","","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","49.55","15.68","33.87","0.08","33.79","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 15:59:54","2026-04-12 15:10:53","2026-04-11 15:59:54","2026-04-12 15:10:53","2026-04-12 15:10:53","","34.8","0"],
+        ["WG2026041100109","WX1775888210318","沪A77235D","","高锰压块","","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","50.37","16.22","34.15","0.08","34.07","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 14:18:19","2026-04-12 13:39:26","2026-04-11 14:18:19","2026-04-12 13:39:26","2026-04-12 13:39:26","","35.47","0"],
+        ["WG2026041100108","WX1775888017570","沪A83085D","","高锰压块","","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","50.67","15.92","34.75","0.08","34.67","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 14:15:43","2026-04-12 16:27:59","2026-04-11 14:15:43","2026-04-12 16:27:59","2026-04-12 16:27:59","","36.1","0"],
+        ["WG2026041100054","WX1775868564471","晋M01068D","","高锰压块","","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","50.07","15.03","35.04","0.08","34.96","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 08:55:19","2026-04-12 11:31:51","2026-04-11 08:55:19","2026-04-12 11:31:51","2026-04-12 11:31:51","","36.16","0"],
+        ["WG2026041100053","WX1775868639984","晋M02521D","","高锰压块","","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","49.08","15.15","33.93","0.08","33.85","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 08:53:53","2026-04-12 10:37:34","2026-04-11 08:53:53","2026-04-12 10:37:34","2026-04-12 10:37:34","","35.06","0"],
+        ["WG2026041100047","WX1775868090125","晋L74413","","高锰压块","","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","50.04","15.25","34.79","0.08","34.71","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 08:46:02","2026-04-12 12:14:50","2026-04-11 08:46:02","2026-04-12 12:14:50","2026-04-12 12:14:50","","35.795","0"],
+        ["WG2026041100044","WX1775861396071","晋LW2378","","高锰压块","","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","50.6","15.73","34.87","0.08","34.79","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 08:38:48","2026-04-12 10:50:46","2026-04-11 08:38:48","2026-04-12 10:50:46","2026-04-12 10:50:46","","35.855","0"],
+        ["WG2026041200048","WX1775953514324","晋LS0721","","高锰压块","","采购","陕西交通城市矿产循环科技有限公司","华翔（洪洞）智能科技有限公司","50.7","14.91","35.79","0.08","35.71","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:46:53","2026-04-12 16:21:58","2026-04-12 08:46:53","2026-04-12 16:21:58","2026-04-12 16:21:58","","37","0"],
+        ["WG2026041200038","WX1775953009122","晋L54219","","高锰压块","","采购","陕西交通城市矿产循环科技有限公司","华翔（洪洞）智能科技有限公司","51.4","15.81","35.59","0.08","35.51","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:33:18","2026-04-12 17:18:02","2026-04-12 08:33:18","2026-04-12 17:18:02","2026-04-12 17:18:02","","36.66","0"],
+        ["WG2026041100106","WX1775885934769","晋LG6688","","高锰压块","","采购","陕西交通城市矿产循环科技有限公司","华翔（洪洞）智能科技有限公司","49.97","49.97","0","0","0","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 13:39:35","2026-04-12 15:09:16","2026-04-11 13:39:35","2026-04-12 15:09:16","2026-04-12 15:09:16","","35.25","0"],
+        ["WG2026041100102","WX1775885422351","晋DS7568","","高锰压块","","采购","陕西交通城市矿产循环科技有限公司","华翔（洪洞）智能科技有限公司","48.65","15.63","33.02","0.08","32.94","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 13:32:13","2026-04-12 17:49:40","2026-04-11 13:32:13","2026-04-12 17:49:40","2026-04-12 17:49:40","","34.1","0"],
+        ["WG2026041100101","WX1775876917823","晋L88533","","高锰压块","","采购","陕西交通城市矿产循环科技有限公司","华翔（洪洞）智能科技有限公司","50.31","14.29","36.02","0.08","35.94","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-11 13:30:32","2026-04-12 16:55:09","2026-04-11 13:30:32","2026-04-12 16:55:09","2026-04-12 16:55:09","","50.53","0"],
+        ["WG2026041200118","WX1775986275731","晋L412J77","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.01","0.37","0.64","0","0.64","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:32:59","2026-04-12 17:43:25","2026-04-12 17:32:59","2026-04-12 17:43:25","2026-04-12 17:43:25","","2","0"],
+        ["WG2026041200114","WX1775984572816","晋L412L77","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.09","0.37","0.72","0","0.72","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:05:34","2026-04-12 17:42:56","2026-04-12 17:05:34","2026-04-12 17:42:56","2026-04-12 17:42:56","","2","0"],
+        ["WG2026041200109","WX1775983126772","晋L412H77","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.06","0.37","0.69","0","0.69","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 16:39:01","2026-04-12 17:42:25","2026-04-12 16:39:01","2026-04-12 17:42:25","2026-04-12 17:42:25","","2","0"],
+        ["WG2026041200107","WX1775978215079","晋VCCX99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.97","0.35","0.62","0","0.62","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 16:07:08","2026-04-12 16:11:23","2026-04-12 16:07:08","2026-04-12 16:11:23","2026-04-12 16:11:23","","2","0"],
+        ["WG2026041200105","WX1775980942795","晋LHXSV88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.64","0.35","0.29","0","0.29","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 16:02:44","2026-04-12 16:09:35","2026-04-12 16:02:44","2026-04-12 16:09:35","2026-04-12 16:09:35","","1","0"],
+        ["WG2026041200104","WX1775962292493","晋NBVC99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.04","0.35","0.69","0","0.69","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 15:47:47","2026-04-12 16:10:52","2026-04-12 15:47:47","2026-04-12 16:10:52","2026-04-12 16:10:52","","2","0"],
+        ["WG2026041200103","WX1775970219523","晋LHXHV88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1","0.35","0.65","0","0.65","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 15:47:09","2026-04-12 16:09:09","2026-04-12 15:47:09","2026-04-12 16:09:09","2026-04-12 16:09:09","","1","0"],
+        ["WG2026041200102","WX1775970188540","晋LHXS88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1","0.35","0.65","0","0.65","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 15:20:31","2026-04-12 16:08:42","2026-04-12 15:20:31","2026-04-12 16:08:42","2026-04-12 16:08:42","","1","0"],
+        ["WG2026041200101","WX1775962272119","晋LKKL99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.08","0.36","0.72","0","0.72","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 15:19:44","2026-04-12 16:10:22","2026-04-12 15:19:44","2026-04-12 16:10:22","2026-04-12 16:10:22","","2","0"],
+        ["WG2026041200100","WX1775970161338","晋LHXSN88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.99","0.35","0.64","0","0.64","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 14:57:24","2026-04-12 16:08:11","2026-04-12 14:57:24","2026-04-12 16:08:11","2026-04-12 16:08:11","","1","0"],
+        ["WG2026041200099","WX1775962246742","晋JJKK99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.03","0.35","0.68","0","0.68","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 14:52:03","2026-04-12 16:12:03","2026-04-12 14:52:03","2026-04-12 16:12:03","2026-04-12 16:12:03","","2","0"],
+        ["WG2026041200084","WX1775960492632","晋NBNB99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.99","0.35","0.64","0","0.64","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:24:57","2026-04-12 10:33:13","2026-04-12 10:24:57","2026-04-12 10:33:13","2026-04-12 10:33:13","","2","0"],
+        ["WG2026041200076","WX1775958898935","晋VCVC99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.99","0.35","0.64","0","0.64","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:58:29","2026-04-12 10:32:43","2026-04-12 09:58:29","2026-04-12 10:32:43","2026-04-12 10:32:43","","2","0"],
+        ["WG2026041200070","WX1775957890307","晋LHXHP88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.96","0.35","0.61","0","0.61","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:39:39","2026-04-12 16:07:44","2026-04-12 09:39:39","2026-04-12 16:07:44","2026-04-12 16:07:44","","1","0"],
+        ["WG2026041200066","WX1775957261069","晋XXZZ99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.92","0.36","0.56","0","0.56","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:31:06","2026-04-12 10:32:15","2026-04-12 09:31:06","2026-04-12 10:32:15","2026-04-12 10:32:15","","2","0"],
+        ["WG2026041200063","WX1775956861731","晋LHXSR88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.02","0.35","0.67","0","0.67","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:22:51","2026-04-12 16:06:38","2026-04-12 09:22:51","2026-04-12 16:06:38","2026-04-12 16:06:38","","1","0"],
+        ["WG2026041200059","WX1775956063973","晋RQQR99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.99","0.35","0.64","0","0.64","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:10:47","2026-04-12 10:31:47","2026-04-12 09:10:47","2026-04-12 10:31:47","2026-04-12 10:31:47","","2","0"],
+        ["WG2026041200054","WX1775954070502","晋LHXSH88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.99","0.35","0.64","0","0.64","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:59:42","2026-04-12 09:45:08","2026-04-12 08:59:42","2026-04-12 09:45:08","2026-04-12 09:45:08","","1","0"],
+        ["WG2026041200049","WX1775954530639","晋RREE99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.01","0.36","0.65","0","0.65","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:47:56","2026-04-12 10:31:19","2026-04-12 08:47:56","2026-04-12 10:31:19","2026-04-12 10:31:19","","2","0"],
+        ["WG2026041200040","WX1775953855477","晋LHXSE87","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.99","0.35","0.64","0","0.64","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:35:43","2026-04-12 09:44:40","2026-04-12 08:35:43","2026-04-12 09:44:40","2026-04-12 09:44:40","","1","0"],
+        ["WG2026041200034","WX1775953142552","晋WWWW99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.03","0.35","0.68","0","0.68","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:21:03","2026-04-12 10:30:51","2026-04-12 08:21:03","2026-04-12 10:30:51","2026-04-12 10:30:51","","2","0"],
+        ["WG2026041200029","WX1775952283476","晋LHXFS88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.93","0.35","0.58","0","0.58","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:07:10","2026-04-12 09:44:12","2026-04-12 08:07:10","2026-04-12 09:44:12","2026-04-12 09:44:12","","1","0"],
+        ["WG2026041200026","WX1775951784811","晋EEEE99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.08","0.35","0.73","0","0.73","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:58:36","2026-04-12 10:30:23","2026-04-12 07:58:36","2026-04-12 10:30:23","2026-04-12 10:30:23","","2","0"],
+        ["WG2026041200022","WX1775950996735","晋LHXSD88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.99","0.35","0.64","0","0.64","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:45:57","2026-04-12 09:43:48","2026-04-12 07:45:57","2026-04-12 09:43:48","2026-04-12 09:43:48","","1","0"],
+        ["WG2026041200021","WX1775950706312","晋YTYT99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.1","0.35","0.75","0","0.75","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:41:28","2026-04-12 10:29:56","2026-04-12 07:41:28","2026-04-12 10:29:56","2026-04-12 10:29:56","","2","0"],
+        ["WG2026041200015","WX1775946183247","晋LHXSS88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.03","0.35","0.68","0","0.68","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:25:48","2026-04-12 09:43:22","2026-04-12 07:25:48","2026-04-12 09:43:22","2026-04-12 09:43:22","","1","0"],
+        ["WG2026041200013","WX1775949382595","晋RTTR99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.01","0.35","0.66","0","0.66","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:18:12","2026-04-12 10:29:28","2026-04-12 07:18:12","2026-04-12 10:29:28","2026-04-12 10:29:28","","2","0"],
+        ["WG2026041200007","WX1775946149066","晋LHXSA88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.03","0.35","0.68","0","0.68","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:07:00","2026-04-12 09:42:54","2026-04-12 07:07:00","2026-04-12 09:42:54","2026-04-12 09:42:54","","1","0"],
+        ["WG2026041200006","WX1775948323857","晋QQWW99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.98","0.36","0.62","0","0.62","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:00:36","2026-04-12 10:28:59","2026-04-12 07:00:36","2026-04-12 10:28:59","2026-04-12 10:28:59","","2","0"],
+        ["WG2026041200003","WX1775946101839","晋LHXSY88","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","0.97","0.35","0.62","0","0.62","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 06:44:03","2026-04-12 09:42:29","2026-04-12 06:44:03","2026-04-12 09:42:29","2026-04-12 09:42:29","","1","0"],
+        ["WG2026041200002","WX1775947203765","晋BCBC99","","合金铁屑","","采购","活塞机加工铁屑（合金）","华翔（洪洞）智能科技有限公司","1.13","0.36","0.77","0","0.77","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 06:42:05","2026-04-12 10:28:32","2026-04-12 06:42:05","2026-04-12 10:28:32","2026-04-12 10:28:32","","2","0"],
+        ["WG2026041200095","WX1775971026839","晋MY3927","鑫富汇","灰铁废铸件","普通","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","50.9","15.24","35.66","0.1","35.56","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 13:44:23","2026-04-12 19:20:26","2026-04-12 13:44:23","2026-04-12 19:20:26","2026-04-12 19:20:26","","36.795","0"],
+        ["WG2026041200090","WX1775965243015","晋LJ0655","孔斌","灰铁废铸件","普通","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","49.42","15.87","33.55","0.1","33.45","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 11:42:13","2026-04-12 15:05:44","2026-04-12 11:42:13","2026-04-12 15:05:44","2026-04-12 15:05:44","","34.73","0"],
+        ["WG2026041200087","WX1775961665419","晋LL6798","杜克峯","灰铁废铸件","普通","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","49.5","15.88","33.62","0.1","33.52","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:56:31","2026-04-12 14:07:39","2026-04-12 10:56:31","2026-04-12 14:07:39","2026-04-12 14:07:39","","34.72","0"],
+        ["WG2026041200072","WX1775956815786","晋LM8596","鑫富汇","灰铁废铸件","普通","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","50.84","15.46","35.38","0.1","35.28","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:41:14","2026-04-12 13:08:31","2026-04-12 09:41:14","2026-04-12 13:08:31","2026-04-12 13:08:31","","36.545","0"],
+        ["WG2026041200051","WX1775953177354","冀DX4024","李世立","灰铁废铸件","普通","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","52.55","15.71","36.84","0.1","36.74","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:50:25","2026-04-12 14:39:08","2026-04-12 08:50:25","2026-04-12 14:39:08","2026-04-12 14:39:08","","38.37","0"],
+        ["WG2026041200041","WX1775917027021","晋L75955","翰联","灰铁废铸件","普通","采购","山西丰驰再生资源有限公司","华翔（洪洞）智能科技有限公司","50.39","14.61","35.78","0.1","35.68","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:37:43","2026-04-12 13:33:52","2026-04-12 08:37:43","2026-04-12 13:33:52","2026-04-12 13:33:52","","36.91","0"],
+        ["WG2026041200077","WX1775959110709","晋L412G77","","灰铁铁屑","","采购","隔板机加工铁屑（灰铁）","华翔（洪洞）智能科技有限公司","0.75","0.37","0.38","0","0.38","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:59:03","2026-04-12 17:41:50","2026-04-12 09:59:03","2026-04-12 17:41:50","2026-04-12 17:41:50","","2","0"],
+        ["WG2026041200071","WX1775957904151","晋L412F77","","灰铁铁屑","","采购","隔板机加工铁屑（灰铁）","华翔（洪洞）智能科技有限公司","1.15","0.37","0.78","0","0.78","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:40:10","2026-04-12 17:41:19","2026-04-12 09:40:10","2026-04-12 17:41:19","2026-04-12 17:41:19","","2","0"],
+        ["WG2026041200057","WX1775955983449","晋L412E77","","灰铁铁屑","","采购","隔板机加工铁屑（灰铁）","华翔（洪洞）智能科技有限公司","1.13","0.37","0.76","0","0.76","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:08:06","2026-04-12 17:40:50","2026-04-12 09:08:06","2026-04-12 17:40:50","2026-04-12 17:40:50","","2","0"],
+        ["WG2026041200043","WX1775954368748","晋L412D77","","灰铁铁屑","","采购","隔板机加工铁屑（灰铁）","华翔（洪洞）智能科技有限公司","1.04","0.37","0.67","0","0.67","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:42:10","2026-04-12 17:40:19","2026-04-12 08:42:10","2026-04-12 17:40:19","2026-04-12 17:40:19","","2","0"],
+        ["WG2026041200030","WX1775952484112","晋L412C77","","灰铁铁屑","","采购","隔板机加工铁屑（灰铁）","华翔（洪洞）智能科技有限公司","1.14","0.37","0.77","0","0.77","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:10:40","2026-04-12 17:39:41","2026-04-12 08:10:40","2026-04-12 17:39:41","2026-04-12 17:39:41","","2","0"],
+        ["WG2026041200019","WX1775950703512","晋L412B77","","灰铁铁屑","","采购","隔板机加工铁屑（灰铁）","华翔（洪洞）智能科技有限公司","1.04","0.37","0.67","0","0.67","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:40:12","2026-04-12 17:38:31","2026-04-12 07:40:12","2026-04-12 17:38:31","2026-04-12 17:38:31","","2","0"],
+        ["WG2026041200010","WX1775949111962","晋L412A77","","灰铁铁屑","","采购","隔板机加工铁屑（灰铁）","华翔（洪洞）智能科技有限公司","1.1","0.37","0.73","0","0.73","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:12:02","2026-04-12 17:37:57","2026-04-12 07:12:02","2026-04-12 17:37:57","2026-04-12 17:37:57","","2","0"],
+        ["WG2026041200121","WX1775987207165","晋XJH003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.91","0.36","0.55","0","0.55","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 18:07:39","2026-04-12 18:14:53","2026-04-12 18:07:39","2026-04-12 18:14:53","2026-04-12 18:14:53","","1.5","0"],
+        ["WG2026041200120","WX1775947303639","晋LZZ011","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","2.09","0.73","1.36","0","1.36","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:50:49","2026-04-12 17:59:28","2026-04-12 17:50:49","2026-04-12 17:59:28","2026-04-12 17:59:28","","2.5","0"],
+        ["WG2026041200119","WX1775987045431","晋FHX003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.22","0.36","0.86","0","0.86","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:45:02","2026-04-12 18:14:21","2026-04-12 17:45:02","2026-04-12 18:14:21","2026-04-12 18:14:21","","1.5","0"],
+        ["WG2026041200117","WX1775947290303","晋LQQ012","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.89","0.35","0.54","0","0.54","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:30:25","2026-04-12 17:57:56","2026-04-12 17:30:25","2026-04-12 17:57:56","2026-04-12 17:57:56","","1.1","0"],
+        ["WG2026041200116","WX1775985743732","晋LHXJ004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.09","0.36","0.73","0","0.73","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:24:38","2026-04-12 17:37:02","2026-04-12 17:24:38","2026-04-12 17:37:02","2026-04-12 17:37:02","","1.5","0"],
+        ["WG2026041200115","WX1775985078837","晋LHC008","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.31","0.36","0.95","0","0.95","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:11:37","2026-04-12 18:01:19","2026-04-12 17:11:37","2026-04-12 18:01:19","2026-04-12 18:01:19","","1.5","0"],
+        ["WG2026041200112","WX1775946522104","晋XLG005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.19","0.36","0.83","0","0.83","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:00:46","2026-04-12 17:06:06","2026-04-12 17:00:46","2026-04-12 17:06:06","2026-04-12 17:06:06","","2","0"],
+        ["WG2026041200111","WX1775983266210","晋HXL007","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.31","0.36","0.95","0","0.95","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 16:41:17","2026-04-12 16:47:44","2026-04-12 16:41:17","2026-04-12 16:47:44","2026-04-12 16:47:44","","1.4","0"],
+        ["WG2026041200110","WX1775946486679","晋LXG005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.87","0.37","0.5","0","0.5","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 16:40:14","2026-04-12 17:06:37","2026-04-12 16:40:14","2026-04-12 17:06:37","2026-04-12 17:06:37","","2","0"],
+        ["WG2026041200108","WX1775983000495","晋LHX008","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.96","0.36","0.6","0","0.6","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 16:36:51","2026-04-12 18:01:54","2026-04-12 16:36:51","2026-04-12 18:01:54","2026-04-12 18:01:54","","1.5","0"],
+        ["WG2026041200092","WX1775967173057","晋LHXH004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.92","0.36","0.56","0","0.56","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 12:13:03","2026-04-12 17:36:37","2026-04-12 12:13:03","2026-04-12 17:36:37","2026-04-12 17:36:37","","1","0"],
+        ["WG2026041200091","WX1775966402715","晋LHXG004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.95","0.36","0.59","0","0.59","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 12:02:53","2026-04-12 17:36:03","2026-04-12 12:02:53","2026-04-12 17:36:03","2026-04-12 17:36:03","","1.2","0"],
+        ["WG2026041200089","WX1775964309755","晋LHXF004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.91","0.36","0.55","0","0.55","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 11:29:36","2026-04-12 17:35:35","2026-04-12 11:29:36","2026-04-12 17:35:35","2026-04-12 17:35:35","","1.2","0"],
+        ["WG2026041200088","WX1775963042972","晋HXY007","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.66","0.35","1.31","0","1.31","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 11:07:12","2026-04-12 11:27:22","2026-04-12 11:07:12","2026-04-12 11:27:22","2026-04-12 11:27:22","","1.7","0"],
+        ["WG2026041200086","WX1775962143751","晋LHXD004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.35","0.36","0.99","0","0.99","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:53:30","2026-04-12 17:35:08","2026-04-12 10:53:30","2026-04-12 17:35:08","2026-04-12 17:35:08","","1.4","0"],
+        ["WG2026041200083","WX1775960638563","晋HXT007","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.29","0.35","0.94","0","0.94","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:24:25","2026-04-12 11:27:58","2026-04-12 10:24:25","2026-04-12 11:27:58","2026-04-12 11:27:58","","1.3","0"],
+        ["WG2026041200082","WX1775960478371","晋LHZ008","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.68","0.37","1.31","0","1.31","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:22:54","2026-04-12 18:00:26","2026-04-12 10:22:54","2026-04-12 18:00:26","2026-04-12 18:00:26","","1.5","0"],
+        ["WG2026041200081","WX1775960027736","晋LHXS004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.31","0.36","0.95","0","0.95","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:18:16","2026-04-12 17:34:41","2026-04-12 10:18:16","2026-04-12 17:34:41","2026-04-12 17:34:41","","1.4","0"],
+        ["WG2026041200080","WX1775950133870","晋HJX003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.16","0.36","0.8","0","0.8","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:15:45","2026-04-12 18:13:51","2026-04-12 10:15:45","2026-04-12 18:13:51","2026-04-12 18:13:51","","1.5","0"],
+        ["WG2026041200075","WX1775950092829","晋JXH003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.95","0.36","0.59","0","0.59","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:57:57","2026-04-12 18:13:26","2026-04-12 09:57:57","2026-04-12 18:13:26","2026-04-12 18:13:26","","1.5","0"],
+        ["WG2026041200074","WX1775959006766","晋HXR007","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.33","0.36","0.97","0","0.97","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:57:01","2026-04-12 11:28:29","2026-04-12 09:57:01","2026-04-12 11:28:29","2026-04-12 11:28:29","","1.4","0"],
+        ["WG2026041200073","WX1775947279819","晋LQQ011","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.23","0.36","0.87","0","0.87","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:52:06","2026-04-12 17:57:30","2026-04-12 09:52:06","2026-04-12 17:57:30","2026-04-12 17:57:30","","1.5","0"],
+        ["WG2026041200069","WX1775950048188","晋JHX003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.14","0.36","0.78","0","0.78","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:37:29","2026-04-12 18:13:03","2026-04-12 09:37:29","2026-04-12 18:13:03","2026-04-12 18:13:03","","1.5","0"],
+        ["WG2026041200068","WX1775957524868","晋LHA008","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.27","0.43","0.84","0","0.84","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:32:19","2026-04-12 18:02:54","2026-04-12 09:32:19","2026-04-12 18:02:54","2026-04-12 18:02:54","","1.5","0"],
+        ["WG2026041200067","WX1775946437283","晋GXL005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.81","0.36","0.45","0","0.45","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:31:43","2026-04-12 09:39:09","2026-04-12 09:31:43","2026-04-12 09:39:09","2026-04-12 09:39:09","","2","0"],
+        ["WG2026041200065","WX1775957219339","晋LHXA004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.91","0.36","0.55","0","0.55","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:30:35","2026-04-12 17:34:03","2026-04-12 09:30:35","2026-04-12 17:34:03","2026-04-12 17:34:03","","1.1","0"],
+        ["WG2026041200064","WX1775947263740","晋LXX012","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.24","0.36","0.88","0","0.88","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:29:21","2026-04-12 17:57:04","2026-04-12 09:29:21","2026-04-12 17:57:04","2026-04-12 17:57:04","","1.5","0"],
+        ["WG2026041200062","WX1775954281915","晋HXE007","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.15","0.36","0.79","0","0.79","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:18:21","2026-04-12 11:28:59","2026-04-12 09:18:21","2026-04-12 11:28:59","2026-04-12 11:28:59","","1.4","0"],
+        ["WG2026041200060","WX1775949953034","晋HXL003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.21","0.36","0.85","0","0.85","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:14:44","2026-04-12 18:12:35","2026-04-12 09:14:44","2026-04-12 18:12:35","2026-04-12 18:12:35","","1.5","0"],
+        ["WG2026041200058","WX1775946422400","晋LGX005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.37","0.36","1.01","0","1.01","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:10:09","2026-04-12 09:38:39","2026-04-12 09:10:09","2026-04-12 09:38:39","2026-04-12 09:38:39","","2","0"],
+        ["WG2026041200056","WX1775955870225","晋LHS008","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.4","0.43","0.97","0","0.97","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:04:42","2026-04-12 18:03:38","2026-04-12 09:04:42","2026-04-12 18:03:38","2026-04-12 18:03:38","","1.5","0"],
+        ["WG2026041200055","WX1775947253833","晋LXX011","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.26","0.36","0.9","0","0.9","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 09:03:19","2026-04-12 17:56:39","2026-04-12 09:03:19","2026-04-12 17:56:39","2026-04-12 17:56:39","","1.1","0"],
+        ["WG2026041200053","WX1775955218788","晋LHXU004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.89","0.36","0.53","0","0.53","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:56:53","2026-04-12 17:33:29","2026-04-12 08:56:53","2026-04-12 17:33:29","2026-04-12 17:33:29","","1.1","0"],
+        ["WG2026041200047","WX1775946407649","晋LXH005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.86","0.36","0.5","0","0.5","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:45:56","2026-04-12 09:38:10","2026-04-12 08:45:56","2026-04-12 09:38:10","2026-04-12 09:38:10","","2","0"],
+        ["WG2026041200046","WX1775949802024","晋HLX003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.23","0.36","0.87","0","0.87","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:45:19","2026-04-12 18:12:12","2026-04-12 08:45:19","2026-04-12 18:12:12","2026-04-12 18:12:12","","1.5","0"],
+        ["WG2026041200044","WX1775947242046","晋LHH012","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","2.25","0.73","1.52","0","1.52","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:42:57","2026-04-12 17:58:49","2026-04-12 08:42:57","2026-04-12 17:58:49","2026-04-12 17:58:49","","2.5","0"],
+        ["WG2026041200036","WX1775946393199","晋XHL005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.47","0.36","1.11","0","1.11","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:29:03","2026-04-12 09:36:51","2026-04-12 08:29:03","2026-04-12 09:36:51","2026-04-12 09:36:51","","2","0"],
+        ["WG2026041200035","WX1775947206633","晋LHH011","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.72","0.36","0.36","0","0.36","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:23:12","2026-04-12 17:56:11","2026-04-12 08:23:12","2026-04-12 17:56:11","2026-04-12 17:56:11","","1.1","0"],
+        ["WG2026041200033","WX1775953074839","晋LHD008","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.25","0.43","0.82","0","0.82","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:18:19","2026-04-12 18:04:13","2026-04-12 08:18:19","2026-04-12 18:04:13","2026-04-12 18:04:13","","1.5","0"],
+        ["WG2026041200032","WX1775949344770","晋LXH003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.28","0.36","0.92","0","0.92","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:17:27","2026-04-12 18:11:48","2026-04-12 08:17:27","2026-04-12 18:11:48","2026-04-12 18:11:48","","1.5","0"],
+        ["WG2026041200031","WX1775952155080","晋LHXY004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.29","0.36","0.93","0","0.93","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:15:28","2026-04-12 17:32:31","2026-04-12 08:15:28","2026-04-12 17:32:31","2026-04-12 17:32:31","","1.3","0"],
+        ["WG2026041200028","WX1775947193456","晋LQZ012","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.89","0.36","0.53","0","0.53","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:06:25","2026-04-12 17:55:45","2026-04-12 08:06:25","2026-04-12 17:55:45","2026-04-12 17:55:45","","1.1","0"],
+        ["WG2026041200027","WX1775946379823","晋HLX005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.23","0.36","0.87","0","0.87","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:05:10","2026-04-12 09:36:25","2026-04-12 08:05:10","2026-04-12 09:36:25","2026-04-12 09:36:25","","2","0"],
+        ["WG2026041200025","WX1775951610902","晋HXW007","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.31","0.36","0.95","0","0.95","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:53:40","2026-04-12 11:30:08","2026-04-12 07:53:40","2026-04-12 11:30:08","2026-04-12 11:30:08","","1.4","0"],
+        ["WG2026041200024","WX1775949295548","晋XHL003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.29","0.36","0.93","0","0.93","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:52:25","2026-04-12 18:11:19","2026-04-12 07:52:25","2026-04-12 18:11:19","2026-04-12 18:11:19","","1.5","0"],
+        ["WG2026041200023","WX1775951273995","晋LHF008","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.2","0.43","0.77","0","0.77","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:48:04","2026-04-12 18:04:44","2026-04-12 07:48:04","2026-04-12 18:04:44","2026-04-12 18:04:44","","1.5","0"],
+        ["WG2026041200020","WX1775950677204","晋LHXT004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.93","0.36","0.57","0","0.57","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:40:48","2026-04-12 17:32:01","2026-04-12 07:40:48","2026-04-12 17:32:01","2026-04-12 17:32:01","","1.1","0"],
+        ["WG2026041200018","WX1775946363417","晋XLH005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.25","0.36","0.89","0","0.89","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:39:35","2026-04-12 09:35:58","2026-04-12 07:39:35","2026-04-12 09:35:58","2026-04-12 09:35:58","","2","0"],
+        ["WG2026041200017","WX1775947183486","晋LQZ011","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.99","0.36","0.63","0","0.63","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:38:01","2026-04-12 17:55:19","2026-04-12 07:38:01","2026-04-12 17:55:19","2026-04-12 17:55:19","","1.1","0"],
+        ["WG2026041200016","WX1775949215862","晋LHX003","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.88","0.36","0.52","0","0.52","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:33:53","2026-04-12 18:10:57","2026-04-12 07:33:53","2026-04-12 18:10:57","2026-04-12 18:10:57","","1.5","0"],
+        ["WG2026041200014","WX1775949592185","晋HXQ007","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.42","0.36","1.06","0","1.06","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:20:02","2026-04-12 11:30:38","2026-04-12 07:20:02","2026-04-12 11:30:38","2026-04-12 11:30:38","","1.5","0"],
+        ["WG2026041200012","WX1775946340277","晋HXL005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.91","0.36","0.55","0","0.55","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:16:43","2026-04-12 09:35:27","2026-04-12 07:16:43","2026-04-12 09:35:27","2026-04-12 09:35:27","","2","0"],
+        ["WG2026041200011","WX1775947152192","晋LHX012","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.97","0.36","0.61","0","0.61","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:15:10","2026-04-12 17:54:54","2026-04-12 07:15:10","2026-04-12 17:54:54","2026-04-12 17:54:54","","1.1","0"],
+        ["WG2026041200009","WX1775949028334","晋LHG008","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.35","0.43","0.92","0","0.92","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:10:39","2026-04-12 18:05:18","2026-04-12 07:10:39","2026-04-12 18:05:18","2026-04-12 18:05:18","","1.5","0"],
+        ["WG2026041200008","WX1775948727688","晋LHXR004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","0.88","0.36","0.52","0","0.52","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 07:07:37","2026-04-12 17:39:09","2026-04-12 07:07:37","2026-04-12 17:39:09","2026-04-12 17:39:09","","1","0"],
+        ["WG2026041200005","WX1775946326667","晋LHX005","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.45","0.36","1.09","0","1.09","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 06:54:46","2026-04-12 09:34:54","2026-04-12 06:54:46","2026-04-12 09:34:54","2026-04-12 09:34:54","","2","0"],
+        ["WG2026041200004","WX1775947002410","晋LHX011","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","1.45","0.36","1.09","0","1.09","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 06:52:23","2026-04-12 17:54:19","2026-04-12 06:52:23","2026-04-12 17:54:19","2026-04-12 17:54:19","","1.8","0"],
+        ["WG2026041200001","WX1775947107704","晋LHXQ004","","球铁铁屑","","采购","曲轴机加工（铁屑）","华翔（洪洞）智能科技有限公司","2.17","0.44","1.73","0","1.73","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 06:41:22","2026-04-12 17:31:05","2026-04-12 06:41:22","2026-04-12 17:31:05","2026-04-12 17:31:05","","2.2","0"],
+        ["WG2026041200039","WX1775953500859","晋D07371D","","石川除渣剂","","采购","中颍恒盛科技有限公司","华翔（洪洞）智能科技有限公司","49.77","15.81","33.96","0.2","33.76","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:34:35","2026-04-12 10:27:29","2026-04-12 08:34:35","2026-04-12 10:27:29","2026-04-12 10:27:29","","35","0"],
+        ["WG2026041200113","WX1775984648776","晋LH9637","","铁豆","","采购","华翔（洪洞）智能科技有限公司","华翔（洪洞）智能科技有限公司","7.13","5.25","1.88","0","1.88","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 17:04:23","2026-04-12 17:10:23","2026-04-12 17:04:23","2026-04-12 17:10:23","2026-04-12 17:10:23","","3","0"],
+        ["WG2026041200085","WX1775960606717","晋MS9227","","增碳剂","C≥98%，S≤0.25","采购","山西鼎安恒新能源材料有限公司","华翔（洪洞）智能科技有限公司","16.8","15.8","1","0","1","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:26:02","2026-04-12 10:39:12","2026-04-12 10:26:02","2026-04-12 10:39:12","2026-04-12 10:39:12","","1","0"],
+        ["WG2026041200079","WX1775959561306","晋MS9227","","增碳剂","C≥98%，S≤0.25","采购","山西鼎安恒新能源材料有限公司","华翔（洪洞）智能科技有限公司","17.8","16.8","1","0","1","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 10:11:53","2026-04-12 10:21:07","2026-04-12 10:11:53","2026-04-12 10:21:07","2026-04-12 10:21:07","","1","0"],
+        ["WG2026041200037","WX1775952929638","晋MS9227","","增碳剂","C≥98%，S≤0.25","采购","山西鼎安恒新能源材料有限公司","华翔（洪洞）智能科技有限公司","50.65","17.79","32.86","0.2","32.66","吨","0","0","0","0","0","A","A","磅房","磅房","2026-04-12 08:31:47","2026-04-12 10:04:09","2026-04-12 08:31:47","2026-04-12 10:04:09","2026-04-12 10:04:09","","34.99","0"],
+        ["合计","","","","","","","","","1402.49","498.83","903.66","2.68","900.98","","","0","","","","","","","","","","","","","","","","",""]
+    ];
+
+    const weighingHeaders = ["称重编号","进场编号","车牌号","","货物名称","规格名称","过磅类型","发货单位","收货单位","毛重","皮重","净重","扣重","实重","单位","单价","金额","折方系数","方量","过磅费","毛重磅号","皮重磅号","毛重人员","皮重人员","一次过磅时间","二次过磅时间","毛重时间","皮重时间","最后更新时间","备注","原发重量","上次皮重"];
+
+    function renderReceiptTable() {
+        const container = document.getElementById('receiptTableContainer');
+        if (!container) return;
+        renderReceiptFilterOptions();
+        bindReceiptFilterEvents();
+        const rows = getReceiptFilteredRows();
+        let html = `<table class="excel-table"><thead><tr>`;
+        receiptHeaders.forEach(h => { html += `<th>${h || ''}</th>`; });
+        html += `</tr></thead><tbody>`;
+        rows.forEach(row => {
+            html += `<tr>`;
+            for (let i = 0; i < receiptHeaders.length; i++) {
+                html += `<td>${row[i] !== undefined ? row[i] : ''}</td>`;
+            }
+            html += `</tr>`;
+        });
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+    }
+
+    function renderWeighingTable() {
+        const container = document.getElementById('weighingTableContainer');
+        if (!container) return;
+        let html = `<table class="excel-table"><thead><tr>`;
+        weighingHeaders.forEach(h => { html += `<th>${h || ''}</th>`; });
+        html += `</tr></thead><tbody>`;
+        weighingData.forEach(row => {
+            html += `<tr>`;
+            for (let i = 0; i < weighingHeaders.length; i++) {
+                html += `<td>${row[i] !== undefined ? row[i] : ''}</td>`;
+            }
+            html += `</tr>`;
+        });
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+    }
+
+    // 事件绑定
+    document.getElementById('claimAmountCard').onclick = showClaimPage;
+    document.getElementById('cardYearRing').onclick = showMonthlyChartPage;
+    document.getElementById('cardMarRing').onclick = showMaterialChartPage;
+    document.querySelector('.inventory-panel').onclick = showInventoryFullPage;
+    document.getElementById('cardReceivableMain').onclick = showReceivableDetailPage;
+    document.getElementById('backFromElementBtn').onclick = showPrimary;
+    document.getElementById('backFromClaimBtn').onclick = showPrimary;
+    document.getElementById('backFromMonthlyChartBtn').onclick = showPrimary;
+    document.getElementById('backFromMaterialChartBtn').onclick = showPrimary;
+    document.getElementById('backFromInventoryFullBtn').onclick = showPrimary;
+    document.getElementById('backFromReceivableDetailBtn').onclick = showPrimary;
+    document.getElementById('closeImageModal').onclick = () => document.getElementById('imageModal').style.display='none';
+    window.onclick = (e) => { if(e.target === document.getElementById('imageModal')) document.getElementById('imageModal').style.display='none'; };
+
+    function init() {
+        document.getElementById('totalClaimAmount').innerHTML = `¥${calcClaimTotal().toLocaleString()}`;
+        ringYearChart = renderRingProgress('ringYearProgress', yearCompletion, yearTotalPlan, yearTotalActual);
+        ringMarChart = renderRingProgress('ringMarProgress', marCompletion, marTotalPlan, marTotalActual);
+        renderInventory(); renderOrders(); buildChemTableLegacy();
+        primaryDiv.style.display = 'flex';
+        elementDiv.classList.remove('active-view');
+        claimDiv.classList.remove('active-view');
+        monthlyChartDiv.classList.remove('active-view');
+        materialChartDiv.classList.remove('active-view');
+        inventoryFullDiv.classList.remove('active-view');
+        receivableDetailDiv.classList.remove('active-view');
+        elementDiv.style.display = 'none';
+        claimDiv.style.display = 'none';
+        monthlyChartDiv.style.display = 'none';
+        materialChartDiv.style.display = 'none';
+        inventoryFullDiv.style.display = 'none';
+        receivableDetailDiv.style.display = 'none';
+        renderReceivableMainCard();
+        renderReceivableDetail('fengchi');
+        bindReceivableTabs();
+        window.addEventListener('resize', () => { ringYearChart?.resize(); ringMarChart?.resize(); invChart?.resize(); invFullChart?.resize(); secondaryEchart?.resize(); receivableMainChart?.resize(); activeReceivableDetailChart?.resize(); });
+    }
+    init();
+</script>
+</body>
+</html>

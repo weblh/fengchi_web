@@ -3,57 +3,105 @@ import ReactECharts from 'echarts-for-react';
 
 interface ReceivablesBarChartProps {
   companies: string[];
-  bookValues: number[];
-  overdueValues: number[];
+  spotBookValues: number[];
+  acceptBookValues: number[];
+  spotOverdueValues: number[];
+  acceptOverdueValues: number[];
 }
 
 export const ReceivablesBarChart: React.FC<ReceivablesBarChartProps> = ({ 
   companies, 
-  bookValues, 
-  overdueValues 
+  spotBookValues, 
+  acceptBookValues, 
+  spotOverdueValues, 
+  acceptOverdueValues 
 }) => {
   const option = {
     tooltip: { 
-      trigger: 'axis' 
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter: function(params: any) {
+        let res = params[0].axisValue + '<br/>';
+        let bookStack = 0, overdueStack = 0;
+        params.forEach((p: any) => {
+          if (p.seriesName === '现汇账面' || p.seriesName === '承兑账面') bookStack += p.value;
+          if (p.seriesName === '现汇逾期' || p.seriesName === '承兑逾期') overdueStack += p.value;
+          res += `${p.marker} ${p.seriesName}: ${p.value.toFixed(2)} 万元<br/>`;
+        });
+        res += `<strong>账面合计: ${bookStack.toFixed(2)} 万元</strong><br/>`;
+        res += `<strong>逾期合计: ${overdueStack.toFixed(2)} 万元</strong>`;
+        return res;
+      }
     },
     legend: { 
-      data: ['账面应收', '逾期金额'] 
+      data: ['现汇账面', '承兑账面', '现汇逾期', '承兑逾期'] 
     },
     xAxis: { 
       type: 'category', 
       data: companies, 
       axisLabel: { 
-        fontSize: 10 
-      } 
+        fontSize: 10
+      }
     },
+    grid: {  bottom: 10, containLabel: true },
     yAxis: { 
       name: '万元' 
     },
     series: [
       {
-        name: '账面应收',
+        name: '现汇账面',
         type: 'bar',
-        data: bookValues,
+        stack: 'book',
+        data: spotBookValues,
         itemStyle: { 
-          color: '#2f73ff' 
+          color: '#3b82f6' 
         },
         label: {
           show: true,
-          position: 'top',
-          fontSize: 9
+          position: 'inside',
+          formatter: (p: any) => p.value > 0 ? p.value.toFixed(0) : ''
         }
       },
       {
-        name: '逾期金额',
+        name: '承兑账面',
         type: 'bar',
-        data: overdueValues,
+        stack: 'book',
+        data: acceptBookValues,
+        itemStyle: { 
+          color: '#10b981' 
+        },
+        label: {
+          show: true,
+          position: 'inside',
+          formatter: (p: any) => p.value > 0 ? p.value.toFixed(0) : ''
+        }
+      },
+      {
+        name: '现汇逾期',
+        type: 'bar',
+        stack: 'overdue',
+        data: spotOverdueValues,
         itemStyle: { 
           color: '#ef4444' 
         },
         label: {
           show: true,
-          position: 'top',
-          fontSize: 9
+          position: 'inside',
+          formatter: (p: any) => p.value > 0 ? p.value.toFixed(0) : ''
+        }
+      },
+      {
+        name: '承兑逾期',
+        type: 'bar',
+        stack: 'overdue',
+        data: acceptOverdueValues,
+        itemStyle: { 
+          color: '#f472b6' 
+        },
+        label: {
+          show: true,
+          position: 'inside',
+          formatter: (p: any) => p.value > 0 ? p.value.toFixed(0) : ''
         }
       }
     ]

@@ -7,19 +7,35 @@ import { FundsBarChart } from './charts/FundsBarChart';
 import { ReceivableDetailChart } from './charts/ReceivableDetailChart';
 import { PaymentPlanChart } from './charts/PaymentPlanChart';
 import { DiscountPanelChart } from './charts/DiscountPanelChart';
-import type { FinancialData } from '../types';
+import { MonthlyCollectionChart } from './charts/MonthlyCollectionChart';
+import { CollectionTypePieChart } from './charts/CollectionTypePieChart';
+import { TodayPlanBarChart } from './charts/TodayPlanBarChart';
+import request from '../utils/request';
 
-interface FinancialDashboardProps {
-  data: FinancialData;
-}
-
-export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) => {
+export const FinancialDashboard: React.FC = () => {
   const [activeLevel, setActiveLevel] = useState<'level1' | 'level2'>('level1');
-  const [activeDetailTab, setActiveDetailTab] = useState<string>('fengchi');
-  const [activeDiscountTab, setActiveDiscountTab] = useState<string>('interest');
+  const [activeDetailTab, setActiveDetailTab] = useState<string>('');
+  const [activeDiscountTab, setActiveDiscountTab] = useState<string>('price');
   const [activeLevel2Card, setActiveLevel2Card] = useState<string>('funds');
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [selectedYear, setSelectedYear] = useState<string>('2026');
+  const [selectedMonth, setSelectedMonth] = useState<string>('4');
   const dashboardRef = React.useRef<HTMLDivElement>(null);
+
+  // 状态变量存储API数据
+  const [receivableData, setReceivableData] = useState<any[]>([]);
+  const [fundBalanceData, setFundBalanceData] = useState<any[]>([]);
+  const [paymentPlanData, setPaymentPlanData] = useState<any[]>([]);
+  const [financeDiscountData, setFinanceDiscountData] = useState<any[]>([]);
+  const [dailyPaymentPlanData, setDailyPaymentPlanData] = useState<any[]>([]);
+  const [listingPriceData, setListingPriceData] = useState<any[]>([]);
+  const [lastRecordDate, setLastRecordDate] = useState<string>('');
+  const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
+  const [fundUpdateTime, setFundUpdateTime] = useState<string>('');
+  const [dailyPlanUpdateTime, setDailyPlanUpdateTime] = useState<string>('');
+
+  // 加载状态
+  const [loading, setLoading] = useState<boolean>(true);
 
   // 切换全屏
   const toggleFullscreen = () => {
@@ -63,79 +79,332 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
     };
   }, []);
 
-  // 基础数据
-  const dailyFundsRaw = { units: ['耀通', '昌泽', '丰驰'], 现汇: [822189.45, 549463.22, 312689.32], 银承: [17456717.01, 5038268.44, 15537677.01], 美易单: [0, 0, 83283.6] };
-  const companyTotal = dailyFundsRaw.units.map((_, idx) => dailyFundsRaw.现汇[idx] + dailyFundsRaw.银承[idx] + dailyFundsRaw.美易单[idx]);
-  const sortedIndices = [...Array(dailyFundsRaw.units.length).keys()].sort((a,b) => companyTotal[b] - companyTotal[a]);
-  const sortedFunds = { units: sortedIndices.map(i => dailyFundsRaw.units[i]), 现汇: sortedIndices.map(i => dailyFundsRaw.现汇[i]), 银承: sortedIndices.map(i => dailyFundsRaw.银承[i]), 美易单: sortedIndices.map(i => dailyFundsRaw.美易单[i]) };
-  
-  const companyData = {
-    fengchi: {
-      name: '丰驰',
-      clients: ['精密', '圣德曼', '洪洞', '翼城', '重工'],
-      book: [5976988.68, 10912567.54, 12830866.13, 320978.01, 1963551.08],
-      overdue: [4853611.75, 4605914.36, 5395887.70, 320978.01, 1291777.50]
-    },
-    changze: {
-      name: '昌泽',
-      clients: ['精密', '圣德曼', '洪洞', '翼城', '重工'],
-      book: [480791.13, 4689962.08, 1552166.71, 0, 0],
-      overdue: [384632.90, 2117877.34, 1241733.37, 0, 0]
-    },
-    yaotong: {
-      name: '耀通',
-      clients: ['精密', '圣德曼', '洪洞', '翼城', '重工'],
-      book: [1371342.99, 12921720.00, 2817905.40, 0, 0],
-      overdue: [753346.39, 5667214.59, 1521343.46, 0, 0]
-    }
+  // 获取API数据
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        
+        // 1. 应收账款·账面vs逾期
+        const receivableResult = await request.get('/api/receivable/list');
+        // 检查数据结构，处理不同的返回格式
+        let receivableData = receivableResult;
+        if (receivableResult && typeof receivableResult === 'object' && 'data' in receivableResult) {
+          receivableData = receivableResult.data;
+        }
+        // 确保数据是数组
+        if (!Array.isArray(receivableData) && receivableData.list) {
+          receivableData = receivableData.list;
+        }
+        setReceivableData(Array.isArray(receivableData) ? receivableData : []);
+
+        // 2. 每日资金余额
+        const fundBalanceResult = await request.get('/fund-balance/list');
+        setFundBalanceData(fundBalanceResult);
+        // 设置最后更新时间
+        if (fundBalanceResult && fundBalanceResult.length > 0) {
+          const lastItem = fundBalanceResult[fundBalanceResult.length - 1];
+          if (lastItem.recordDate) {
+            setLastRecordDate(lastItem.recordDate);
+          }
+          if (lastItem.updateTime) {
+            setFundUpdateTime(lastItem.updateTime);
+          }
+        }
+
+        // 3. 累计回款
+        const paymentPlanResult = await request.get('/payment-plan/list');
+        setPaymentPlanData(paymentPlanResult);
+        // 设置最后更新时间
+        if (paymentPlanResult && paymentPlanResult.length > 0) {
+          const lastItem = paymentPlanResult[paymentPlanResult.length - 1];
+          if (lastItem.updateTime) {
+            setLastUpdateTime(lastItem.updateTime);
+          }
+        }
+
+        // 4. 利率分析
+        const financeDiscountResult = await request.get('/finance-discount/list');
+        setFinanceDiscountData(financeDiscountResult);
+
+        // 5. 每日付款计划
+        const dailyPaymentPlanResult = await request.get('/daily-payment-plan/list');
+        setDailyPaymentPlanData(dailyPaymentPlanResult);
+        // 设置最后更新时间
+        if (dailyPaymentPlanResult && dailyPaymentPlanResult.length > 0) {
+          const lastItem = dailyPaymentPlanResult[dailyPaymentPlanResult.length - 1];
+          if (lastItem.updateTime) {
+            setDailyPlanUpdateTime(lastItem.updateTime);
+          }
+        }
+
+        // 6. 挂牌价格
+        const listingPriceResult = await request.get('/listing-price/list');
+        setListingPriceData(listingPriceResult);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  // 处理API数据
+  // 1. 每日资金余额数据处理
+  const dailyFundsRaw = {
+    units: fundBalanceData.map(item => item.company),
+    现汇: fundBalanceData.map(item => item.cash || 0),
+    银承: fundBalanceData.map(item => item.bankAcceptance || 0),
+    美易单: fundBalanceData.map(item => item.meiyidan || 0),
+    融单: fundBalanceData.map(item => item.rongdan || 0),
+    金单: fundBalanceData.map(item => item.jindan || 0),
+    迪链: fundBalanceData.map(item => item.dilian || 0)
   };
   
-  const ferroRaw = [{ client: '精密', book: 371318.5, overdue: 371318.5-169365.3 },{ client: '圣德曼', book: 695580.4, overdue: 0 },{ client: '洪洞', book: 1783018.6, overdue: 1783018.6-955025.9 },{ client: '翼城', book: 195671.7, overdue: 195671.7 },{ client: '重工', book: 593630, overdue: 593630 }];
-  const ferroSorted = [...ferroRaw].sort((a,b) => b.book - a.book);
+  const companyTotal = dailyFundsRaw.units.map((_, idx) => 
+    dailyFundsRaw.现汇[idx] + 
+    dailyFundsRaw.银承[idx] + 
+    dailyFundsRaw.美易单[idx] + 
+    dailyFundsRaw.融单[idx] + 
+    dailyFundsRaw.金单[idx] + 
+    dailyFundsRaw.迪链[idx]
+  );
+  const sortedIndices = [...Array(dailyFundsRaw.units.length).keys()].sort((a,b) => companyTotal[b] - companyTotal[a]);
+  const sortedFunds = { 
+    units: sortedIndices.map(i => dailyFundsRaw.units[i]), 
+    现汇: sortedIndices.map(i => dailyFundsRaw.现汇[i]), 
+    银承: sortedIndices.map(i => dailyFundsRaw.银承[i]), 
+    美易单: sortedIndices.map(i => dailyFundsRaw.美易单[i]),
+    融单: sortedIndices.map(i => dailyFundsRaw.融单[i]),
+    金单: sortedIndices.map(i => dailyFundsRaw.金单[i]),
+    迪链: sortedIndices.map(i => dailyFundsRaw.迪链[i])
+  };
+  
+  // 2. 应收账款数据处理
+  // 动态获取所有公司和物料类型
+  const allCompanies = [...new Set(receivableData.map(item => item.company))];
+  const allMaterialTypes = [...new Set(receivableData.map(item => item.materialType))];
+  
+  // 为每个公司和物料类型的组合创建数据源
+  const companyData: any = {};
+  
+  allCompanies.forEach(company => {
+    allMaterialTypes.forEach(materialType => {
+      const tabKey = `${company}${materialType}`;
+      const filteredData = receivableData.filter(item => item.company === company && item.materialType === materialType);
+      
+      if (filteredData.length > 0) {
+        // 按供应商分组
+        const suppliers = [...new Set(filteredData.map(item => item.supplier))];
+        
+        // 为每个供应商计算现汇和承兑金额
+        const spotBook = suppliers.map(supplier => {
+          const supplierData = filteredData.find(item => item.supplier === supplier && item.paymentType === '现汇');
+          return supplierData ? supplierData.receivableAmount || 0 : 0;
+        });
+        
+        const acceptBook = suppliers.map(supplier => {
+          const supplierData = filteredData.find(item => item.supplier === supplier && item.paymentType === '承兑');
+          return supplierData ? supplierData.receivableAmount || 0 : 0;
+        });
+        
+        const spotOverdue = suppliers.map(supplier => {
+          const supplierData = filteredData.find(item => item.supplier === supplier && item.paymentType === '现汇');
+          return supplierData ? supplierData.overdueAmount || 0 : 0;
+        });
+        
+        const acceptOverdue = suppliers.map(supplier => {
+          const supplierData = filteredData.find(item => item.supplier === supplier && item.paymentType === '承兑');
+          return supplierData ? supplierData.overdueAmount || 0 : 0;
+        });
+        
+        companyData[tabKey] = {
+          name: `${company}${materialType}`,
+          clients: suppliers,
+          spotBook,
+          acceptBook,
+          spotOverdue,
+          acceptOverdue
+        };
+      }
+    });
+  });
+  
+  // 设置默认选中的选项卡
+  const tabKeys = Object.keys(companyData);
+  if (tabKeys.length > 0 && !activeDetailTab) {
+    setActiveDetailTab(tabKeys[0]);
+  }
+  
+  // 铁合金和钢丸数据处理
+  const ferroRaw = receivableData.filter(item => item.materialType === '铁合金').map(item => ({
+    client: item.supplier,
+    spotBook: item.paymentType === '现汇' ? (item.receivableAmount || 0) : 0,
+    acceptBook: item.paymentType === '承兑' ? (item.receivableAmount || 0) : 0,
+    spotOverdue: item.paymentType === '现汇' ? (item.overdueAmount || 0) : 0,
+    acceptOverdue: item.paymentType === '承兑' ? (item.overdueAmount || 0) : 0,
+    totalBook: item.receivableAmount || 0,
+    totalOverdue: item.overdueAmount || 0
+  }));
+  
+  const ferroSorted = [...ferroRaw].sort((a,b) => b.totalBook - a.totalBook);
   const ferroClients = ferroSorted.map(v => v.client);
-  const ferroBooks = ferroSorted.map(v => v.book);
-  const ferroOverdue = ferroSorted.map(v => v.overdue);
-  const totalFerroBook = ferroBooks.reduce((a,b)=>a+b,0);
-  const totalFerroOverdue = ferroOverdue.reduce((a,b)=>a+b,0);
+  const ferroSpotBook = ferroSorted.map(v => v.spotBook);
+  const ferroAcceptBook = ferroSorted.map(v => v.acceptBook);
+  const ferroSpotOverdue = ferroSorted.map(v => v.spotOverdue);
+  const ferroAcceptOverdue = ferroSorted.map(v => v.acceptOverdue);
+  const ferroBooks = ferroSorted.map(v => v.totalBook);
+  const ferroOverdue = ferroSorted.map(v => v.totalOverdue);
+  const totalFerroBook = ferroSorted.reduce((a,b)=>a+b.totalBook,0);
+  const totalFerroOverdue = ferroSorted.reduce((a,b)=>a+b.totalOverdue,0);
   
-  const steelRaw = [{ client: '精密', book: 835127.3-139511.4, overdue: 0 },{ client: '圣德曼', book: 3850575.5, overdue: 0 },{ client: '洪洞', book: 6214313.1, overdue: 0 },{ client: '轻合金', book: 140244, overdue: 0 },{ client: '翼城', book: 257182.3, overdue: 103537.8 },{ client: '广东翔泰', book: 58170, overdue: 0 },{ client: '重工', book: 288528.8, overdue: 8160.6 }];
-  const steelSorted = [...steelRaw].sort((a,b) => b.book - a.book);
+  const steelRaw = receivableData.filter(item => item.materialType === '钢丸').map(item => ({
+    client: item.supplier,
+    spotBook: item.paymentType === '现汇' ? (item.receivableAmount || 0) : 0,
+    acceptBook: item.paymentType === '承兑' ? (item.receivableAmount || 0) : 0,
+    spotOverdue: item.paymentType === '现汇' ? (item.overdueAmount || 0) : 0,
+    acceptOverdue: item.paymentType === '承兑' ? (item.overdueAmount || 0) : 0,
+    totalBook: item.receivableAmount || 0,
+    totalOverdue: item.overdueAmount || 0
+  }));
+  
+  const steelSorted = [...steelRaw].sort((a,b) => b.totalBook - a.totalBook);
   const steelClients = steelSorted.map(v => v.client);
-  const steelBooks = steelSorted.map(v => v.book);
-  const steelOverdueList = steelSorted.map(v => v.overdue);
-  const totalSteelBook = steelBooks.reduce((a,b)=>a+b,0);
-  const totalSteelOverdue = steelOverdueList.reduce((a,b)=>a+b,0);
+  const steelSpotBook = steelSorted.map(v => v.spotBook);
+  const steelAcceptBook = steelSorted.map(v => v.acceptBook);
+  const steelSpotOverdue = steelSorted.map(v => v.spotOverdue);
+  const steelAcceptOverdue = steelSorted.map(v => v.acceptOverdue);
+  const steelBooks = steelSorted.map(v => v.totalBook);
+  const steelOverdueList = steelSorted.map(v => v.totalOverdue);
+  const totalSteelBook = steelSorted.reduce((a,b)=>a+b.totalBook,0);
+  const totalSteelOverdue = steelSorted.reduce((a,b)=>a+b.totalOverdue,0);
   
-  const paymentPlanRaw = [
-    { company: "耀通", suppliers: [{ name: "信阳华鑫汇", amount: 100 }, { name: "天津利都", amount: 200 }, { name: "信阳申淮", amount: 100 }, { name: "大城隆越", amount: 100 }, { name: "湖北翰联", amount: 50 }] },
-    { company: "丰驰", suppliers: [{ name: "信阳华鑫汇", amount: 100 }, { name: "天津利都", amount: 100 }, { name: "信阳申淮", amount: 100 }, { name: "陕西聚运", amount: 200 }, { name: "陕西锦邦", amount: 100 }, { name: "大城隆越", amount: 100 }, { name: "湖北翰联", amount: 100 }] },
-    { company: "昌泽", suppliers: [{ name: "信阳华鑫汇", amount: 50 }, { name: "虎溪铜盐厂", amount: 50 }] },
-    { company: "现汇户", suppliers: [{ name: "个人", amount: 100 }] }
-  ];
-  const paymentPlanWithTotals = paymentPlanRaw.map(cd => ({ ...cd, totalAmount: cd.suppliers.reduce((s,sup)=>s+sup.amount,0) })).sort((a,b)=>a.totalAmount - b.totalAmount);
+  // 3. 付款计划数据处理
+  const paymentPlanRaw = dailyPaymentPlanData.reduce((acc, item) => {
+    const existingCompany = acc.find(company => company.company === item.company);
+    if (existingCompany) {
+      existingCompany.suppliers.push({ name: item.supplier || '供应商', amount: item.amount || 0, date: item.date });
+    } else {
+      acc.push({ company: item.company, suppliers: [{ name: item.supplier || '供应商', amount: item.amount || 0, date: item.date }] });
+    }
+    return acc;
+  }, [] as { company: string; suppliers: { name: string; amount: number; date: string }[] }[]);
+  
+  const paymentPlanWithTotals = paymentPlanRaw.map(cd => ({ ...cd, totalAmount: cd.suppliers.reduce((s,sup)=>s+sup.amount,0) })).sort((a,b)=>b.totalAmount - a.totalAmount);
   const allSuppliers = [...new Set(paymentPlanRaw.flatMap(d => d.suppliers.map(s => s.name)))];
   
-  const rawDiscountInterest = [438332.31, 142905.95, 498239.06, 458246.22, 532686.61, 492628.54, 529290.14, 424633.61, 630215.43, 626037.21, 539236.62, 1020669.75];
+  // 4. 利率分析数据处理
   const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
+  
+  const rawDiscountInterest = financeDiscountData.map(item => item.discountInterest || 0);
   const discountInterestWan = rawDiscountInterest.map(v => Math.round(v / 10000));
   
-  const febListingData = [
-    { name: '银承', value: 1.30 },
-    { name: '美易单', value: 2.80 },
-    { name: '融单', value: 3.86 },
-    { name: '金单', value: 7.20 },
-    { name: '迪链', value: 2.98 }
-  ];
+  // 5. 挂牌价格数据处理
+  // 按月份和类型组织数据
+  const listingMonthsWithData = [...new Set(listingPriceData.map(item => item.month))].sort();
+  const priceTypes = [...new Set(listingPriceData.map(item => item.priceType))];
   
-  const rateData = [2.16, 1.23, 1.97, 1.59, 1.38, 1.45, 1.67, 1.36, 1.32, 1.32, 1.25, 2.24];
+  // 构建按月份和类型组织的数据结构
+  const listingDataByMonth = listingMonthsWithData.map(month => {
+    const monthData = priceTypes.map(type => {
+      const item = listingPriceData.find(i => i.month === month && i.priceType === type);
+      return { name: type, value: item ? item.priceRate || 0 : 0 };
+    });
+    return { month, data: monthData };
+  });
+  
+  // 为了保持兼容性，仍然保留 febListingData
+  const febListingData = listingPriceData.map(item => ({ name: item.priceType, value: item.priceRate || 0 }));
+  
+  const rateData = financeDiscountData.map(item => item.interestRate || 0);
+  
+  // 6. 月度回款结构数据处理
+  // 按月份和付款类型组织数据
+  const paymentTypes = [...new Set(paymentPlanData.map(item => item.paymentType))];
+  
+  // 获取有数据的月份，按顺序排序
+  const monthsWithData = [...new Set(paymentPlanData.map(item => item.month))].sort((a, b) => {
+    // 提取月份数字进行排序
+    const monthA = parseInt(a.replace('月', ''));
+    const monthB = parseInt(b.replace('月', ''));
+    return monthA - monthB;
+  });
+  
+  // 生成颜色数组
+  const colors = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#ec4899', '#64748b', '#f97316'];
+  
+  const monthlyCollectionData = {
+    paymentTypes,
+    colors,
+    monthsWithData,
+    data: paymentTypes.map((type, index) => {
+      return {
+        type,
+        color: colors[index % colors.length],
+        values: monthsWithData.map(month => {
+          const item = paymentPlanData.find(i => i.month === month && i.paymentType === type);
+          return item ? item.ratio || 0 : 0;
+        })
+      };
+    })
+  };
+  
+  // 计算当年各汇款类型的总回款数据（用于饼状图）
+  // 根据回款结构接口中每个月的amount字段合计进行计算占比
+  const totalAmount = paymentPlanData.reduce((sum, item) => sum + (item.amount || 0), 0);
+  
+  const collectionTypeData = paymentTypes.map((type, index) => {
+    // 计算该类型的总金额
+    const typeTotalAmount = paymentPlanData
+      .filter(item => item.paymentType === type)
+      .reduce((sum, item) => sum + (item.amount || 0), 0);
+    
+    // 计算占比（百分比）
+    const percentage = totalAmount > 0 ? (typeTotalAmount / totalAmount * 100).toFixed(1) : 0;
+    
+    return {
+      type,
+      value: parseFloat(percentage),
+      color: colors[index % colors.length]
+    };
+  }).filter(item => item.value > 0);
   
   // 辅助函数
   const todayStr = () => {
+    if (lastRecordDate) {
+      return lastRecordDate;
+    }
     const d = new Date();
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
+  };
+
+  const updateTimeStr = () => {
+    if (lastUpdateTime) {
+      // 格式化为 YYYY-MM-DD HH:mm:ss
+      return lastUpdateTime.replace('T', ' ').substring(0, 19);
+    }
+    return todayStr();
+  };
+
+  const fundUpdateTimeStr = () => {
+    if (fundUpdateTime) {
+      // 格式化为 YYYY-MM-DD HH:mm:ss
+      return fundUpdateTime.replace('T', ' ').substring(0, 19);
+    }
+    return todayStr();
+  };
+
+  const dailyPlanUpdateTimeStr = () => {
+    if (dailyPlanUpdateTime) {
+      // 格式化为 YYYY-MM-DD HH:mm:ss
+      return dailyPlanUpdateTime.replace('T', ' ').substring(0, 19);
+    }
+    return todayStr();
   };
   
   const monthWeekStr = () => {
@@ -151,20 +420,64 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
   const totalCash = sortedFunds.现汇.reduce((a,b)=>a+b,0);
   const totalBank = sortedFunds.银承.reduce((a,b)=>a+b,0);
   const totalMeiyi = sortedFunds.美易单.reduce((a,b)=>a+b,0);
-  const totalFunds = toWanInt(totalCash + totalBank + totalMeiyi);
+  const totalRongdan = sortedFunds.融单.reduce((a,b)=>a+b,0);
+  const totalJindan = sortedFunds.金单.reduce((a,b)=>a+b,0);
+  const totalDilian = sortedFunds.迪链.reduce((a,b)=>a+b,0);
+  const totalFunds = toWanInt(totalCash + totalBank + totalMeiyi + totalRongdan + totalJindan + totalDilian);
   
-  // 计算应收账款总计
-  const companyBookValues = [32004951.44, 6907769.92, 17110968.39];
-  const companyOverdueValues = [16468169.32, 3744243.62, 7941904.44];
-  const totalBook = companyBookValues.reduce((sum, val) => sum + val, 0) + totalFerroBook + totalSteelBook;
-  const totalOverdue = companyOverdueValues.reduce((sum, val) => sum + val, 0) + totalFerroOverdue + totalSteelOverdue;
+  // 计算应收账款总计（现汇和承兑拆分）
+  // 获取所有公司名称
+  const companies = [...new Set(receivableData.map(item => item.company))];
+  
+  const companySpotBookValues = companies.map(company => 
+    receivableData.filter(item => item.company === company && item.paymentType === '现汇').reduce((sum, item) => sum + (item.receivableAmount || 0), 0)
+  );
+  
+  const companyAcceptBookValues = companies.map(company => 
+    receivableData.filter(item => item.company === company && item.paymentType === '承兑').reduce((sum, item) => sum + (item.receivableAmount || 0), 0)
+  );
+  
+  const companySpotOverdueValues = companies.map(company => 
+    receivableData.filter(item => item.company === company && item.paymentType === '现汇').reduce((sum, item) => sum + (item.overdueAmount || 0), 0)
+  );
+  
+  const companyAcceptOverdueValues = companies.map(company => 
+    receivableData.filter(item => item.company === company && item.paymentType === '承兑').reduce((sum, item) => sum + (item.overdueAmount || 0), 0)
+  );
+  
+  const companyBookValues = companySpotBookValues.map((spot, index) => spot + companyAcceptBookValues[index]);
+  const companyOverdueValues = companySpotOverdueValues.map((spot, index) => spot + companyAcceptOverdueValues[index]);
+  
+  // 计算总账面应收和总逾期，不重复计算铁合金和钢丸数据
+  // 直接从所有数据中计算，确保包含所有公司
+  const totalBook = receivableData.reduce((sum, item) => sum + (item.receivableAmount || 0), 0);
+  const totalOverdue = receivableData.reduce((sum, item) => sum + (item.overdueAmount || 0), 0);
+
+  // 主料应收：丰驰 + 昌泽 + 耀通 (现汇 + 承兑) 且 materialType 为主料
+  const totalZhuLiaoBook = receivableData
+    .filter(item => ['丰驰', '昌泽', '耀通'].includes(item.company) && item.materialType === '主料')
+    .reduce((sum, item) => sum + (item.receivableAmount || 0), 0);
   
   // 计算付款计划总计
   const totalPlanAmount = paymentPlanWithTotals.reduce((sum, item) => sum + item.totalAmount, 0);
   
+  // 获取当天日期
+  const today = new Date().toISOString().split('T')[0];
+  
+  // 获取当天的资金使用需求数据
+  const todayPlanData = dailyPaymentPlanData
+    .filter(item => item.date === today)
+    .sort((a, b) => a.company.localeCompare(b.company) || (a.supplier || '').localeCompare(b.supplier || ''));
+  
+  // 计算当日付款计划合计
+  const todayPlanTotalAmount = todayPlanData.reduce((sum, item) => sum + item.amount, 0);
+  
   // 切换到二级看板
   const switchToLevel = (card: string) => {
     setActiveLevel2Card(card);
+    if (card === 'finance') {
+      setActiveDiscountTab('price');
+    }
     setActiveLevel('level2');
   };
   
@@ -175,9 +488,15 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
   
   return (
     <div ref={dashboardRef} className={isFullscreen ? 'fullscreen' : ''}>
-      {/* 一级看板 */}
-      {activeLevel === 'level1' && (
-        <div className="page">
+      {loading ? (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div style={{ fontSize: '1.2rem', color: '#2f73ff' }}>加载数据中...</div>
+        </div>
+      ) : (
+        <>
+          {/* 一级看板 */}
+          {activeLevel === 'level1' && (
+            <div className="page">
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
             <button 
               onClick={toggleFullscreen}
@@ -215,14 +534,17 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
             {/* 资金饼图 */}
             <div className="pie-card" onClick={() => switchToLevel('funds')}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3><i className="fas fa-chart-simple"></i> 💰 每日资金余额 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#2f73ff' }}>¥ {totalFunds.toLocaleString()} 万</span></h3>
-                <div className="date-selector"><span className="status-dot"></span> 日期: {todayStr()}</div>
+                <h3>💰 每日资金余额 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#2f73ff' }}>¥ {totalFunds.toLocaleString()} 万</span></h3>
+                <div className="date-selector"><span className="status-dot"></span> 更新时间: {fundUpdateTimeStr()}</div>
               </div>
               <div className="pie-chart">
                 <FundBalancePieChart 
                   cashBalance={toWanInt(totalCash)} 
                   bankBalance={toWanInt(totalBank)} 
                   otherBalance={toWanInt(totalMeiyi)} 
+                  rongdanBalance={toWanInt(totalRongdan)}
+                  jindanBalance={toWanInt(totalJindan)}
+                  dilianBalance={toWanInt(totalDilian)}
                 />
               </div>
             </div>
@@ -233,41 +555,54 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
                 <h3 style={{ margin: '0' }}>📊 应收账款·账面vs逾期(万元)</h3>
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <div className="mini-kpi">
-                    <div className="kpi-title" style={{ fontSize: '0.7rem' }}>账面应收</div>
-                    <div className="kpi-value" style={{ fontSize: '1rem' }}>¥ {toWanInt(totalBook).toLocaleString()} 万</div>
+                    <div className="kpi-title">账面应收</div>
+                    <div className="kpi-value">¥ {toWanInt(totalBook).toLocaleString()} 万</div>
                   </div>
                   <div className="mini-kpi">
-                    <div className="kpi-title" style={{ fontSize: '0.7rem' }}>逾期</div>
-                    <div className="kpi-value" style={{ fontSize: '1rem', color: '#ef4444' }}>¥ {toWanInt(totalOverdue).toLocaleString()} 万</div>
+                    <div className="kpi-title">其中主料应收</div>
+                    <div className="kpi-value" style={{ color: '#3b82f6' }}>¥ {toWanInt(totalZhuLiaoBook).toLocaleString()} 万</div>
+                  </div>
+                  <div className="mini-kpi">
+                    <div className="kpi-title">逾期</div>
+                    <div className="kpi-value" style={{ color: '#ef4444' }}>¥ {toWanInt(totalOverdue).toLocaleString()} 万</div>
                   </div>
                   <div className="date-selector"><span className="status-dot"></span> {monthWeekStr()}</div>
                 </div>
               </div>
               <div className="pie-chart">
                 <ReceivablesBarChart 
-                  companies={['丰驰', '昌泽', '耀通']} 
-                  bookValues={companyBookValues.map(v => toWanInt(v))} 
-                  overdueValues={companyOverdueValues.map(v => toWanInt(v))} 
+                  companies={companies} 
+                  spotBookValues={companySpotBookValues.map(v => toWanInt(v))} 
+                  acceptBookValues={companyAcceptBookValues.map(v => toWanInt(v))} 
+                  spotOverdueValues={companySpotOverdueValues.map(v => toWanInt(v))} 
+                  acceptOverdueValues={companyAcceptOverdueValues.map(v => toWanInt(v))} 
                 />
               </div>
             </div>
             
             {/* 利率分析折线图 */}
             <div className="pie-card" onClick={() => switchToLevel('finance')}>
-              <h3><i className="fas fa-chart-line"></i> 📈 利率分析 (1-12月)</h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>📈 利率分析 (1-12月)</h3>
+                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#2f73ff' }}>贴现金额合计: ¥ {discountInterestWan.reduce((sum, value) => sum + value, 0).toLocaleString()} 万</span>
+              </div>
               <div className="pie-chart">
                 <InterestRateChart 
                   months={months} 
                   rateData={rateData} 
+                  discountInterestData={discountInterestWan} 
                 />
               </div>
             </div>
             
-            {/* 付款计划饼图 */}
+            {/* 每日付款计划饼状图 */}
             <div className="pie-card" onClick={() => switchToLevel('plan')}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3><i className="fas fa-calendar-day"></i> 📅 每日付款计划 <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#2f73ff' }}>¥ {totalPlanAmount.toLocaleString()} 万</span></h3>
-                <div className="date-selector"><span className="status-dot"></span> 日期: {todayStr()}</div>
+                <h3>📅 每日付款计划</h3>
+                <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: '600', color: '#f97316' }}>合计: ¥ {totalPlanAmount.toFixed(2)} 万</span>
+                  <div className="date-selector"><span className="status-dot"></span> 更新时间: {dailyPlanUpdateTimeStr()}</div>
+                </div>
               </div>
               <div className="pie-chart">
                 <PaymentPlanPieChart 
@@ -276,11 +611,16 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
               </div>
             </div>
             
-            {/* 月度回款结构折线图 */}
-            <div className="pie-card">
-              <h3><i className="fas fa-hand-holding-dollar"></i> 💵 月度回款结构 (比率%)</h3>
+            {/* 月度回款结构饼状图 */}
+            <div className="pie-card" onClick={() => switchToLevel('collection')}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3>💵 月度回款结构 (比率%)</h3>
+                <div className="date-selector"><span className="status-dot"></span> 更新时间: {updateTimeStr()}</div>
+              </div>
               <div className="pie-chart">
-                {/* 这里可以添加月度回款结构折线图组件 */}
+                <CollectionTypePieChart 
+                  data={collectionTypeData} 
+                />
               </div>
             </div>
           </div>
@@ -322,10 +662,10 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <i className={isFullscreen ? "fas fa-compress" : "fas fa-expand"}></i> {isFullscreen ? '退出全屏' : '全屏'}
+                {isFullscreen ? '退出全屏' : '全屏'}
               </button>
               <div className="back-link" onClick={switchToLevel1}>
-                <i className="fas fa-arrow-left"></i> 返回一级
+                返回一级
               </div>
             </div>
           </div>
@@ -334,8 +674,8 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
             {activeLevel2Card === 'funds' && (
               <div className="chart-card">
                 <div className="chart-header-kpis">
-                  <div className="kpi-title"><i className="fas fa-coins"></i> 每日资金余额 (万元)</div>
-                  <div className="date-selector"><span className="status-dot"></span> 日期: {todayStr()}</div>
+                  <div className="kpi-title">每日资金余额 (万元)</div>
+                  <div className="date-selector"><span className="status-dot"></span> 更新时间: {fundUpdateTimeStr()}</div>
                 </div>
                 <div className="chart-container">
                   <FundsBarChart 
@@ -343,6 +683,9 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
                     xianhui={sortedFunds.现汇.map(v => toWanInt(v))} 
                     yincheng={sortedFunds.银承.map(v => toWanInt(v))} 
                     meiyi={sortedFunds.美易单.map(v => toWanInt(v))} 
+                    rongdan={sortedFunds.融单.map(v => toWanInt(v))}
+                    jindan={sortedFunds.金单.map(v => toWanInt(v))}
+                    dilian={sortedFunds.迪链.map(v => toWanInt(v))}
                   />
                 </div>
               </div>
@@ -352,99 +695,118 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
             {activeLevel2Card === 'receivable' && (
               <div className="chart-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                  <div className="kpi-title" style={{ margin: '0' }}><i className="fas fa-receipt"></i> 应收账款明细</div>
+                  <div className="kpi-title" style={{ margin: '0' }}>应收账款明细</div>
                   <div className="date-selector"><span className="status-dot"></span> {monthWeekStr()}</div>
                 </div>
                 <div className="tab-header-mini">
-                  <button 
-                    className={`mini-tab-btn ${activeDetailTab === 'fengchi' ? 'active' : ''}`} 
-                    onClick={() => setActiveDetailTab('fengchi')}
-                  >
-                    丰驰
-                  </button>
-                  <button 
-                    className={`mini-tab-btn ${activeDetailTab === 'changze' ? 'active' : ''}`} 
-                    onClick={() => setActiveDetailTab('changze')}
-                  >
-                    昌泽
-                  </button>
-                  <button 
-                    className={`mini-tab-btn ${activeDetailTab === 'yaotong' ? 'active' : ''}`} 
-                    onClick={() => setActiveDetailTab('yaotong')}
-                  >
-                    耀通
-                  </button>
-                  <button 
-                    className={`mini-tab-btn ${activeDetailTab === 'ferro' ? 'active' : ''}`} 
-                    onClick={() => setActiveDetailTab('ferro')}
-                  >
-                    铁合金
-                  </button>
-                  <button 
-                    className={`mini-tab-btn ${activeDetailTab === 'steel' ? 'active' : ''}`} 
-                    onClick={() => setActiveDetailTab('steel')}
-                  >
-                    钢丸
-                  </button>
+                  {Object.keys(companyData).map(tabKey => (
+                    <button
+                      key={tabKey}
+                      className={`mini-tab-btn ${activeDetailTab === tabKey ? 'active' : ''}`}
+                      onClick={() => setActiveDetailTab(tabKey)}
+                    >
+                      {companyData[tabKey].name}
+                    </button>
+                  ))}
                 </div>
                 <div className="detail-chart-container">
                   <ReceivableDetailChart 
                     tab={activeDetailTab} 
                     companyData={companyData} 
-                    ferroClients={ferroClients} 
-                    ferroBooks={ferroBooks.map(v => toWanInt(v))} 
-                    ferroOverdue={ferroOverdue.map(v => toWanInt(v))} 
-                    steelClients={steelClients} 
-                    steelBooks={steelBooks.map(v => toWanInt(v))} 
-                    steelOverdueList={steelOverdueList.map(v => toWanInt(v))} 
+                    ferroClients={[]} 
+                    ferroBooks={[]} 
+                    ferroOverdue={[]} 
+                    ferroSpotBook={[]}
+                    ferroAcceptBook={[]}
+                    ferroSpotOverdue={[]}
+                    ferroAcceptOverdue={[]}
+                    steelClients={[]}
+                    steelBooks={[]}
+                    steelOverdueList={[]}
+                    steelSpotBook={[]}
+                    steelAcceptBook={[]}
+                    steelSpotOverdue={[]}
+                    steelAcceptOverdue={[]}
                   />
                 </div>
                 <div className="kpi-mini-row">
                   <div className="kpi-mini-item">
                     <span className="kpi-mini-label">账面应收总额</span>
                     <div className="kpi-mini-value">
-                      {activeDetailTab === 'fengchi' && `¥ ${toWanInt(companyData.fengchi.book.reduce((a,b)=>a+b,0)).toLocaleString()} 万`}
-                      {activeDetailTab === 'changze' && `¥ ${toWanInt(companyData.changze.book.reduce((a,b)=>a+b,0)).toLocaleString()} 万`}
-                      {activeDetailTab === 'yaotong' && `¥ ${toWanInt(companyData.yaotong.book.reduce((a,b)=>a+b,0)).toLocaleString()} 万`}
-                      {activeDetailTab === 'ferro' && `¥ ${toWanInt(totalFerroBook).toLocaleString()} 万`}
-                      {activeDetailTab === 'steel' && `¥ ${toWanInt(totalSteelBook).toLocaleString()} 万`}
+                      {activeDetailTab && companyData[activeDetailTab] && `¥ ${toWanInt((companyData[activeDetailTab].spotBook.reduce((a,b)=>a+b,0) + companyData[activeDetailTab].acceptBook.reduce((a,b)=>a+b,0))).toLocaleString()} 万`}
                     </div>
                   </div>
                   <div className="kpi-mini-item">
                     <span className="kpi-mini-label">逾期总额</span>
                     <div className="kpi-mini-value">
-                      {activeDetailTab === 'fengchi' && `¥ ${toWanInt(companyData.fengchi.overdue.reduce((a,b)=>a+b,0)).toLocaleString()} 万`}
-                      {activeDetailTab === 'changze' && `¥ ${toWanInt(companyData.changze.overdue.reduce((a,b)=>a+b,0)).toLocaleString()} 万`}
-                      {activeDetailTab === 'yaotong' && `¥ ${toWanInt(companyData.yaotong.overdue.reduce((a,b)=>a+b,0)).toLocaleString()} 万`}
-                      {activeDetailTab === 'ferro' && `¥ ${toWanInt(totalFerroOverdue).toLocaleString()} 万`}
-                      {activeDetailTab === 'steel' && `¥ ${toWanInt(totalSteelOverdue).toLocaleString()} 万`}
+                      {activeDetailTab && companyData[activeDetailTab] && `¥ ${toWanInt((companyData[activeDetailTab].spotOverdue.reduce((a,b)=>a+b,0) + companyData[activeDetailTab].acceptOverdue.reduce((a,b)=>a+b,0))).toLocaleString()} 万`}
                     </div>
                   </div>
                 </div>
               </div>
             )}
             
-            {/* 每日付款计划 */}
+            {/* 趋势图 */}
             {activeLevel2Card === 'plan' && (
               <div className="chart-card">
                 <div className="chart-header-kpis">
                   <div className="mini-kpi">
-                    <div className="kpi-title"><i className="fas fa-calendar-week"></i> 每日付款计划总额</div>
+                    <div className="kpi-title"><i className="fas fa-chart-line"></i> 趋势图</div>
                     <div className="kpi-value">¥ <span>{totalPlanAmount.toLocaleString()}</span> <span style={{ fontSize: '0.8rem' }}>万</span></div>
                   </div>
-                  <div className="date-selector"><span className="status-dot"></span> 日期: {todayStr()}</div>
+                  <div className="date-selector" id="planDateBadge"><span className="status-dot"></span> 更新时间: {dailyPlanUpdateTimeStr()}</div>
                 </div>
-                <div className="chart-container">
+                <div className="chart-container" style={{ height: '55vh', minHeight: '300px' }}>
                   <PaymentPlanChart 
                     companies={paymentPlanWithTotals.map(d => d.company)} 
                     suppliers={allSuppliers} 
                     paymentPlanData={paymentPlanWithTotals} 
+                    isYearly={false} // 二级看板显示月趋势
+                    selectedYear={selectedYear}
+                    selectedMonth={selectedMonth}
+                    years={['2024', '2025', '2026', '2027']}
+                    months={Array.from({ length: 12 }, (_, i) => (i + 1).toString())}
+                    onYearChange={setSelectedYear}
+                    onMonthChange={setSelectedMonth}
+                  />
+                </div>
+                <div style={{ marginTop: '20px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+                  <h4 style={{ marginBottom: '12px', fontSize: '1rem', fontWeight: '600' }}>当天资金使用需求</h4>
+                  <div style={{ height: '250px' }}>
+                    {todayPlanData.length > 0 ? (
+                      <TodayPlanBarChart data={todayPlanData} />
+                    ) : (
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#64748b' }}>
+                        当天暂无资金使用需求
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ marginTop: '12px', textAlign: 'right', fontWeight: '600', color: '#2f73ff' }}>
+                    当日合计: {todayPlanData.reduce((sum, item) => sum + item.amount, 0).toFixed(2)} 万元
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* 月度回款结构 */}
+            {activeLevel2Card === 'collection' && (
+              <div className="chart-card">
+                <div className="chart-header-kpis">
+                  <div className="mini-kpi">
+                    <div className="kpi-title"><i className="fas fa-chart-line"></i> 月度回款结构</div>
+                  </div>
+                  <div className="date-selector"><span className="status-dot"></span> 更新时间: {updateTimeStr()}</div>
+                </div>
+                <div className="chart-container">
+                  <MonthlyCollectionChart 
+                    months={monthlyCollectionData.monthsWithData} 
+                    data={monthlyCollectionData.data} 
                   />
                 </div>
               </div>
             )}
             
-            {/* 贴现/利息/挂牌价 三标签页 */}
+            {/* 挂牌价\利率分析 二标签页 */}
             {activeLevel2Card === 'finance' && (
               <div className="chart-card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
@@ -453,35 +815,33 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
                 <div className="triple-tab-container">
                   <div className="triple-tabs">
                     <button 
-                      className={`triple-tab ${activeDiscountTab === 'interest' ? 'active' : ''}`} 
-                      onClick={() => setActiveDiscountTab('interest')}
-                    >
-                      📉 贴现利息 (月度)
-                    </button>
-                    <button 
                       className={`triple-tab ${activeDiscountTab === 'price' ? 'active' : ''}`} 
                       onClick={() => setActiveDiscountTab('price')}
                     >
-                      🏷️ 2月挂牌价结构
+                      🏷️ 挂牌价
                     </button>
                   </div>
                   <div className="triple-chart-panel">
                     <DiscountPanelChart 
-                      activeTab={activeDiscountTab} 
+                      activeTab="price" 
                       months={months} 
                       discountInterestWan={discountInterestWan} 
                       febListingData={febListingData} 
+                      rateData={rateData} 
+                      listingDataByMonth={listingDataByMonth}
                     />
                   </div>
                 </div>
-                <div className="click-hint" style={{ marginTop: '6px' }}><i className="fas fa-chart-simple"></i> 数据源：月度综合贴现金额/利息 | 挂牌价基于2月市场参考</div>
+                <div className="click-hint" style={{ marginTop: '6px' }}>数据源：月度综合贴现金额/利息 | 挂牌价基于2月市场参考</div>
               </div>
             )}
           </div>
         </div>
       )}
+        </>
+      )}
       
-      <style jsx>{`
+      <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             background: radial-gradient(circle at top right, #f8fafc, #f1f5f9);
@@ -626,8 +986,8 @@ export const FinancialDashboard: React.FC<FinancialDashboardProps> = ({ data }) 
             border-bottom: 1px solid #e2e8f0;
             flex-shrink: 0;
         }
-        .mini-kpi .kpi-title { font-size: 0.8rem; color: #64748b; margin-bottom: 4px; }
-        .mini-kpi .kpi-value { font-size: 1.4rem; font-weight: 800; }
+        .mini-kpi .kpi-title { font-size: 0.8rem; color: #64748b; margin-bottom: 4px; white-space: nowrap; }  
+        .mini-kpi .kpi-value { font-size: 1.4rem; font-weight: 800; white-space: nowrap; }
         .tab-header-mini {
             display: flex;
             gap: 12px;

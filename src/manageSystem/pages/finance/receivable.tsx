@@ -3,6 +3,7 @@ import { Card, Table, Space, Button, DatePicker, Form, Input, Modal, message, Up
 import type { UploadProps } from 'antd';
 import { DownloadOutlined, UploadOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import request from '../../../utils/request';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -10,12 +11,15 @@ const { Option } = Select;
 interface Receivable {
   id: number;
   company: string;
-  client: string;
-  book_amount: number;
-  overdue_amount: number;
-  record_date: string;
-  create_time: string;
-  update_time: string;
+  supplier: string;
+  receivableAmount: number;
+  overdueAmount: number;
+  materialType: string;
+  paymentType: string;
+  recordDate: string;
+  deleted: number;
+  createTime: string;
+  updateTime: string;
 }
 
 const ReceivablePage: React.FC = () => {
@@ -26,35 +30,29 @@ const ReceivablePage: React.FC = () => {
   const [editingRecord, setEditingRecord] = useState<Receivable | null>(null);
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs] | null>(null);
   const [companyFilter, setCompanyFilter] = useState<string>('');
-  const [clientFilter, setClientFilter] = useState<string>('');
+  const [supplierFilter, setSupplierFilter] = useState<string>('');
 
   // 获取数据
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = '/api/receivable/list';
-      const params = new URLSearchParams();
+      const params: any = {};
       
       if (dateRange) {
-        params.append('startDate', dateRange[0].format('YYYY-MM-DD'));
-        params.append('endDate', dateRange[1].format('YYYY-MM-DD'));
+        params.startDate = dateRange[0].format('YYYY-MM-DD');
+        params.endDate = dateRange[1].format('YYYY-MM-DD');
       }
       
       if (companyFilter) {
-        params.append('company', companyFilter);
+        params.company = companyFilter;
       }
       
-      if (clientFilter) {
-        params.append('client', clientFilter);
+      if (supplierFilter) {
+        params.supplier = supplierFilter;
       }
       
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await fetch(url);
-      const result = await response.json();
-      setData(result.data || []);
+      const result = await request.get('/api/receivable/list', params);
+      setData(result || []);
     } catch (error) {
       message.error('获取数据失败');
       console.error('Error fetching data:', error);
@@ -66,31 +64,67 @@ const ReceivablePage: React.FC = () => {
   // 初始加载数据
   useEffect(() => {
     fetchData();
-  }, [dateRange, companyFilter, clientFilter]);
+  }, [dateRange, companyFilter, supplierFilter]);
 
   // 导出数据
-  const handleExport = () => {
-    let url = '/api/receivable/export';
-    const params = new URLSearchParams();
-    
-    if (dateRange) {
-      params.append('startDate', dateRange[0].format('YYYY-MM-DD'));
-      params.append('endDate', dateRange[1].format('YYYY-MM-DD'));
+  const handleExport = async () => {
+    try {
+      const params: any = {};
+      
+      if (dateRange) {
+        params.startDate = dateRange[0].format('YYYY-MM-DD');
+        params.endDate = dateRange[1].format('YYYY-MM-DD');
+      }
+      
+      if (companyFilter) {
+        params.company = companyFilter;
+      }
+      
+      if (supplierFilter) {
+        params.supplier = supplierFilter;
+      }
+      
+      // 获取 token
+      const token = localStorage.getItem('token');
+      
+      // 构建完整的 URL
+      let url = '/api/receivable/export';
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+      if (searchParams.toString()) {
+        url += `?${searchParams.toString()}`;
+      }
+      
+      // 创建一个新的请求，携带 token
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      // 获取 blob 数据并下载
+      const blob = await response.blob();
+      const urlBlob = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = urlBlob;
+      link.download = `receivable_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(urlBlob);
+    } catch (error) {
+      message.error('导出失败');
+      console.error('Error exporting data:', error);
     }
-    
-    if (companyFilter) {
-      params.append('company', companyFilter);
-    }
-    
-    if (clientFilter) {
-      params.append('client', clientFilter);
-    }
-    
-    if (params.toString()) {
-      url += `?${params.toString()}`;
-    }
-    
-    window.open(url, '_blank');
   };
 
   // 导入数据
@@ -98,7 +132,7 @@ const ReceivablePage: React.FC = () => {
     name: 'file',
     action: '/api/receivable/import',
     headers: {
-      'Content-Type': 'multipart/form-data',
+      'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : '',
     },
     onChange(info) {
       if (info.file.status === 'done') {
@@ -116,10 +150,12 @@ const ReceivablePage: React.FC = () => {
     if (record) {
       form.setFieldsValue({
         company: record.company,
-        client: record.client,
-        book_amount: record.book_amount,
-        overdue_amount: record.overdue_amount,
-        record_date: dayjs(record.record_date),
+        supplier: record.supplier,
+        material_type: record.materialType,
+        payment_type: record.paymentType,
+        receivable_amount: record.receivableAmount,
+        overdue_amount: record.overdueAmount,
+        record_date: dayjs(record.recordDate),
       });
     } else {
       form.resetFields();
@@ -136,29 +172,16 @@ const ReceivablePage: React.FC = () => {
         record_date: values.record_date.format('YYYY-MM-DD'),
       };
 
-      let url = editingRecord ? '/api/receivable/update' : '/api/receivable/add';
-      const method = editingRecord ? 'PUT' : 'POST';
-
       if (editingRecord) {
         submitData.id = editingRecord.id;
-      }
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        message.success(editingRecord ? '更新成功' : '添加成功');
-        setModalVisible(false);
-        fetchData();
+        await request.put('/receivable/update', submitData);
       } else {
-        message.error(result.message || '操作失败');
+        await request.post('/receivable/add', submitData);
       }
+
+      message.success(editingRecord ? '更新成功' : '添加成功');
+      setModalVisible(false);
+      fetchData();
     } catch (error) {
       message.error('操作失败');
       console.error('Error submitting form:', error);
@@ -168,17 +191,9 @@ const ReceivablePage: React.FC = () => {
   // 删除数据
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/receivable/delete/${id}`, {
-        method: 'DELETE',
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        message.success('删除成功');
-        fetchData();
-      } else {
-        message.error(result.message || '删除失败');
-      }
+      await request.delete(`/receivable/delete/${id}`);
+      message.success('删除成功');
+      fetchData();
     } catch (error) {
       message.error('删除失败');
       console.error('Error deleting data:', error);
@@ -192,26 +207,36 @@ const ReceivablePage: React.FC = () => {
       key: 'company',
     },
     {
-      title: '客户名称',
-      dataIndex: 'client',
-      key: 'client',
+      title: '供应商',
+      dataIndex: 'supplier',
+      key: 'supplier',
     },
     {
-      title: '账面应收金额（元）',
-      dataIndex: 'book_amount',
-      key: 'book_amount',
-      render: (text: number) => text.toFixed(2),
+      title: '物料类型',
+      dataIndex: 'materialType',
+      key: 'materialType',
+    },
+    {
+      title: '付款类型',
+      dataIndex: 'paymentType',
+      key: 'paymentType',
+    },
+    {
+      title: '应收金额（元）',
+      dataIndex: 'receivableAmount',
+      key: 'receivableAmount',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
     },
     {
       title: '逾期金额（元）',
-      dataIndex: 'overdue_amount',
-      key: 'overdue_amount',
-      render: (text: number) => text.toFixed(2),
+      dataIndex: 'overdueAmount',
+      key: 'overdueAmount',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
     },
     {
       title: '记录日期',
-      dataIndex: 'record_date',
-      key: 'record_date',
+      dataIndex: 'recordDate',
+      key: 'recordDate',
     },
     {
       title: '操作',
@@ -257,23 +282,13 @@ const ReceivablePage: React.FC = () => {
               <Option value="铁合金">铁合金</Option>
               <Option value="钢丸">钢丸</Option>
             </Select>
-            <Input 
-              placeholder="客户名称" 
-              style={{ width: 150 }} 
-              value={clientFilter}
-              onChange={(e) => setClientFilter(e.target.value)}
-            />
-            <RangePicker 
-              onChange={(dates) => setDateRange(dates)}
-              style={{ width: 300 }}
-            />
-            <Button 
+            {/* <Button 
               type="primary" 
               icon={<PlusOutlined />}
               onClick={() => openModal()}
             >
               添加
-            </Button>
+            </Button> */}
             <Button 
               icon={<DownloadOutlined />}
               onClick={handleExport}
@@ -315,18 +330,39 @@ const ReceivablePage: React.FC = () => {
             </Select>
           </Form.Item>
           <Form.Item
-            name="client"
-            label="客户名称"
-            rules={[{ required: true, message: '请输入客户名称' }]}
+            name="supplier"
+            label="供应商"
+            rules={[{ required: true, message: '请输入供应商' }]}
           >
-            <Input placeholder="请输入客户名称" />
+            <Input placeholder="请输入供应商" />
           </Form.Item>
           <Form.Item
-            name="book_amount"
-            label="账面应收金额（元）"
-            rules={[{ required: true, message: '请输入账面应收金额' }]}
+            name="material_type"
+            label="物料类型"
+            rules={[{ required: true, message: '请选择物料类型' }]}
           >
-            <Input type="number" placeholder="请输入账面应收金额" />
+            <Select placeholder="选择物料类型">
+              <Option value="主料">主料</Option>
+              <Option value="辅料">辅料</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="payment_type"
+            label="付款类型"
+            rules={[{ required: true, message: '请选择付款类型' }]}
+          >
+            <Select placeholder="选择付款类型">
+              <Option value="现汇">现汇</Option>
+              <Option value="银承">银承</Option>
+              <Option value="美易单">美易单</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="receivable_amount"
+            label="应收金额（元）"
+            rules={[{ required: true, message: '请输入应收金额' }]}
+          >
+            <Input type="number" placeholder="请输入应收金额" />
           </Form.Item>
           <Form.Item
             name="overdue_amount"

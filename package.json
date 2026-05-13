@@ -7,19 +7,26 @@
     "dev": "vite --host",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron .",
+    "electron:dev": "concurrently \"npm run dev\" \"electron .\"",
+    "electron:build": "npm run build && electron-builder",
+    "install-electron": "cross-env ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install electron"
   },
+  "main": "electron/main.cjs",
   "dependencies": {
+    "@fingerprintjs/fingerprintjs": "^5.2.0",
     "@tailwindcss/postcss": "^4.2.2",
     "@types/lodash": "^4.17.24",
     "antd": "^6.3.3",
     "autoprefixer": "^10.4.27",
     "cors": "^2.8.6",
     "dayjs": "^1.11.20",
-    "echarts": "^5.5.0",
+    "echarts": "^5.6.0",
     "echarts-for-react": "^3.0.6",
     "express": "^5.2.1",
     "lodash": "^4.17.23",
+    "map": "^1.0.1",
     "postcss": "^8.5.8",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
@@ -33,12 +40,17 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "^41.2.0",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.4.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.57.0",
-    "vite": "^8.0.1"
+    "vite": "^8.0.1",
+    "wait-on": "^7.2.0"
   }
 }

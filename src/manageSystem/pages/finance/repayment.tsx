@@ -3,18 +3,21 @@ import { Card, Table, Space, Button, DatePicker, Form, Input, Modal, message, Up
 import type { UploadProps } from 'antd';
 import { DownloadOutlined, UploadOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import request from '../../../utils/request';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 
 interface PaymentPlan {
   id: number;
-  company: string;
-  supplier: string;
+  month: string;
+  paymentType: string;
+  ratio: number;
   amount: number;
-  plan_date: string;
-  create_time: string;
-  update_time: string;
+  year: number;
+  deleted: number;
+  createTime: string;
+  updateTime: string;
 }
 
 const RepaymentPage: React.FC = () => {
@@ -31,29 +34,8 @@ const RepaymentPage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = '/api/payment-plan/list';
-      const params = new URLSearchParams();
-      
-      if (dateRange) {
-        params.append('startDate', dateRange[0].format('YYYY-MM-DD'));
-        params.append('endDate', dateRange[1].format('YYYY-MM-DD'));
-      }
-      
-      if (companyFilter) {
-        params.append('company', companyFilter);
-      }
-      
-      if (supplierFilter) {
-        params.append('supplier', supplierFilter);
-      }
-      
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await fetch(url);
-      const result = await response.json();
-      setData(result.data || []);
+      const result = await request.get('/payment-plan/list');
+      setData(result || []);
     } catch (error) {
       message.error('获取数据失败');
       console.error('Error fetching data:', error);
@@ -65,31 +47,43 @@ const RepaymentPage: React.FC = () => {
   // 初始加载数据
   useEffect(() => {
     fetchData();
-  }, [dateRange, companyFilter, supplierFilter]);
+  }, []);
 
   // 导出数据
-  const handleExport = () => {
-    let url = '/api/payment-plan/export';
-    const params = new URLSearchParams();
-    
-    if (dateRange) {
-      params.append('startDate', dateRange[0].format('YYYY-MM-DD'));
-      params.append('endDate', dateRange[1].format('YYYY-MM-DD'));
+  const handleExport = async () => {
+    try {
+      // 获取 token
+      const token = localStorage.getItem('token');
+      
+      // 构建完整的 URL
+      const url = '/api/payment-plan/export';
+      
+      // 创建一个新的请求，携带 token
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      // 获取 blob 数据并下载
+      const blob = await response.blob();
+      const urlBlob = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = urlBlob;
+      link.download = `payment_plan_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(urlBlob);
+    } catch (error) {
+      message.error('导出失败');
+      console.error('Error exporting data:', error);
     }
-    
-    if (companyFilter) {
-      params.append('company', companyFilter);
-    }
-    
-    if (supplierFilter) {
-      params.append('supplier', supplierFilter);
-    }
-    
-    if (params.toString()) {
-      url += `?${params.toString()}`;
-    }
-    
-    window.open(url, '_blank');
   };
 
   // 导入数据
@@ -97,7 +91,7 @@ const RepaymentPage: React.FC = () => {
     name: 'file',
     action: '/api/payment-plan/import',
     headers: {
-      'Content-Type': 'multipart/form-data',
+      'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : '',
     },
     onChange(info) {
       if (info.file.status === 'done') {
@@ -114,10 +108,11 @@ const RepaymentPage: React.FC = () => {
     setEditingRecord(record);
     if (record) {
       form.setFieldsValue({
-        company: record.company,
-        supplier: record.supplier,
+        month: record.month,
+        paymentType: record.paymentType,
+        ratio: record.ratio,
         amount: record.amount,
-        plan_date: dayjs(record.plan_date),
+        year: record.year,
       });
     } else {
       form.resetFields();
@@ -131,32 +126,18 @@ const RepaymentPage: React.FC = () => {
       const values = await form.validateFields();
       const submitData = {
         ...values,
-        plan_date: values.plan_date.format('YYYY-MM-DD'),
       };
-
-      let url = editingRecord ? '/api/payment-plan/update' : '/api/payment-plan/add';
-      const method = editingRecord ? 'PUT' : 'POST';
 
       if (editingRecord) {
         submitData.id = editingRecord.id;
-      }
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        message.success(editingRecord ? '更新成功' : '添加成功');
-        setModalVisible(false);
-        fetchData();
+        await request.put('/payment-plan/update', submitData);
       } else {
-        message.error(result.message || '操作失败');
+        await request.post('/payment-plan/add', submitData);
       }
+
+      message.success(editingRecord ? '更新成功' : '添加成功');
+      setModalVisible(false);
+      fetchData();
     } catch (error) {
       message.error('操作失败');
       console.error('Error submitting form:', error);
@@ -166,17 +147,9 @@ const RepaymentPage: React.FC = () => {
   // 删除数据
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/payment-plan/delete/${id}`, {
-        method: 'DELETE',
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        message.success('删除成功');
-        fetchData();
-      } else {
-        message.error(result.message || '删除失败');
-      }
+      await request.delete(`/payment-plan/delete/${id}`);
+      message.success('删除成功');
+      fetchData();
     } catch (error) {
       message.error('删除失败');
       console.error('Error deleting data:', error);
@@ -185,25 +158,31 @@ const RepaymentPage: React.FC = () => {
 
   const columns = [
     {
-      title: '公司名称',
-      dataIndex: 'company',
-      key: 'company',
+      title: '年份',
+      dataIndex: 'year',
+      key: 'year',
     },
     {
-      title: '供应商名称',
-      dataIndex: 'supplier',
-      key: 'supplier',
+      title: '月份',
+      dataIndex: 'month',
+      key: 'month',
     },
     {
-      title: '计划付款金额（万元）',
+      title: '付款类型',
+      dataIndex: 'paymentType',
+      key: 'paymentType',
+    },
+    {
+      title: '金额',
       dataIndex: 'amount',
       key: 'amount',
-      render: (text: number) => text.toFixed(2),
+      render: (text: number) => (text !== undefined && text !== null ? text.toLocaleString() : '0'),
     },
     {
-      title: '计划付款日期',
-      dataIndex: 'plan_date',
-      key: 'plan_date',
+      title: '比率',
+      dataIndex: 'ratio',
+      key: 'ratio',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
     },
     {
       title: '操作',
@@ -234,37 +213,16 @@ const RepaymentPage: React.FC = () => {
   return (
     <div>
       <Card 
-        title="付款计划管理"
+        title="累计回款管理"
         extra={
           <Space>
-            <Select 
-              placeholder="选择公司" 
-              style={{ width: 120 }} 
-              value={companyFilter}
-              onChange={setCompanyFilter}
-            >
-              <Option value="耀通">耀通</Option>
-              <Option value="丰驰">丰驰</Option>
-              <Option value="昌泽">昌泽</Option>
-              <Option value="现汇户">现汇户</Option>
-            </Select>
-            <Input 
-              placeholder="供应商名称" 
-              style={{ width: 150 }} 
-              value={supplierFilter}
-              onChange={(e) => setSupplierFilter(e.target.value)}
-            />
-            <RangePicker 
-              onChange={(dates) => setDateRange(dates)}
-              style={{ width: 300 }}
-            />
-            <Button 
+            {/* <Button 
               type="primary" 
               icon={<PlusOutlined />}
               onClick={() => openModal()}
             >
               添加
-            </Button>
+            </Button> */}
             <Button 
               icon={<DownloadOutlined />}
               onClick={handleExport}
@@ -293,37 +251,43 @@ const RepaymentPage: React.FC = () => {
       >
         <Form form={form} layout="vertical">
           <Form.Item
-            name="company"
-            label="公司名称"
-            rules={[{ required: true, message: '请选择公司名称' }]}
+            name="year"
+            label="年份"
+            rules={[{ required: true, message: '请输入年份' }]}
           >
-            <Select placeholder="选择公司">
-              <Option value="耀通">耀通</Option>
-              <Option value="丰驰">丰驰</Option>
-              <Option value="昌泽">昌泽</Option>
-              <Option value="现汇户">现汇户</Option>
+            <Input type="number" placeholder="请输入年份" />
+          </Form.Item>
+          <Form.Item
+            name="month"
+            label="月份"
+            rules={[{ required: true, message: '请输入月份' }]}
+          >
+            <Input placeholder="请输入月份，例如：1月" />
+          </Form.Item>
+          <Form.Item
+            name="paymentType"
+            label="付款类型"
+            rules={[{ required: true, message: '请选择付款类型' }]}
+          >
+            <Select placeholder="选择付款类型">
+              <Option value="现汇">现汇</Option>
+              <Option value="银承">银承</Option>
+              <Option value="美易单">美易单</Option>
             </Select>
           </Form.Item>
           <Form.Item
-            name="supplier"
-            label="供应商名称"
-            rules={[{ required: true, message: '请输入供应商名称' }]}
+            name="ratio"
+            label="比率"
+            rules={[{ required: true, message: '请输入比率' }]}
           >
-            <Input placeholder="请输入供应商名称" />
+            <Input type="number" placeholder="请输入比率" />
           </Form.Item>
           <Form.Item
             name="amount"
-            label="计划付款金额（万元）"
-            rules={[{ required: true, message: '请输入计划付款金额' }]}
+            label="金额"
+            rules={[{ required: true, message: '请输入金额' }]}
           >
-            <Input type="number" placeholder="请输入计划付款金额" />
-          </Form.Item>
-          <Form.Item
-            name="plan_date"
-            label="计划付款日期"
-            rules={[{ required: true, message: '请选择计划付款日期' }]}
-          >
-            <DatePicker style={{ width: '100%' }} />
+            <Input type="number" placeholder="请输入金额" />
           </Form.Item>
         </Form>
       </Modal>

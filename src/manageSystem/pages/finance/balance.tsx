@@ -3,6 +3,7 @@ import { Card, Table, Space, Button, DatePicker, Form, Input, Modal, message, Up
 import type { UploadProps } from 'antd';
 import { DownloadOutlined, UploadOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import request from '../../../utils/request';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -11,11 +12,15 @@ interface FundBalance {
   id: number;
   company: string;
   cash: number;
-  bank_acceptance: number;
+  bankAcceptance: number;
   meiyidan: number;
-  record_date: string;
-  create_time: string;
-  update_time: string;
+  rongdan: number;
+  jindan: number;
+  dilian: number;
+  recordDate: string;
+  createTime: string;
+  updateTime: string;
+  deleted: number;
 }
 
 const BalancePage: React.FC = () => {
@@ -31,25 +36,19 @@ const BalancePage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = '/api/fund-balance/list';
-      const params = new URLSearchParams();
+      const params: any = {};
       
       if (dateRange) {
-        params.append('startDate', dateRange[0].format('YYYY-MM-DD'));
-        params.append('endDate', dateRange[1].format('YYYY-MM-DD'));
+        params.startDate = dateRange[0].format('YYYY-MM-DD');
+        params.endDate = dateRange[1].format('YYYY-MM-DD');
       }
       
       if (companyFilter) {
-        params.append('company', companyFilter);
+        params.company = companyFilter;
       }
       
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await fetch(url);
-      const result = await response.json();
-      setData(result.data || []);
+      const result = await request.get('/api/fund-balance/list', params);
+      setData(result || []);
     } catch (error) {
       message.error('获取数据失败');
       console.error('Error fetching data:', error);
@@ -64,24 +63,60 @@ const BalancePage: React.FC = () => {
   }, [dateRange, companyFilter]);
 
   // 导出数据
-  const handleExport = () => {
-    let url = '/api/fund-balance/export';
-    const params = new URLSearchParams();
-    
-    if (dateRange) {
-      params.append('startDate', dateRange[0].format('YYYY-MM-DD'));
-      params.append('endDate', dateRange[1].format('YYYY-MM-DD'));
+  const handleExport = async () => {
+    try {
+      const params: any = {};
+      
+      if (dateRange) {
+        params.startDate = dateRange[0].format('YYYY-MM-DD');
+        params.endDate = dateRange[1].format('YYYY-MM-DD');
+      }
+      
+      if (companyFilter) {
+        params.company = companyFilter;
+      }
+      
+      // 获取 token
+      const token = localStorage.getItem('token');
+      
+      // 构建完整的 URL
+      let url = '/api/fund-balance/export';
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+      if (searchParams.toString()) {
+        url += `?${searchParams.toString()}`;
+      }
+      
+      // 创建一个新的请求，携带 token
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      // 获取 blob 数据并下载
+      const blob = await response.blob();
+      const urlBlob = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = urlBlob;
+      link.download = `fund_balance_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(urlBlob);
+    } catch (error) {
+      message.error('导出失败');
+      console.error('Error exporting data:', error);
     }
-    
-    if (companyFilter) {
-      params.append('company', companyFilter);
-    }
-    
-    if (params.toString()) {
-      url += `?${params.toString()}`;
-    }
-    
-    window.open(url, '_blank');
   };
 
   // 导入数据
@@ -89,7 +124,7 @@ const BalancePage: React.FC = () => {
     name: 'file',
     action: '/api/fund-balance/import',
     headers: {
-      'Content-Type': 'multipart/form-data',
+      'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : '',
     },
     onChange(info) {
       if (info.file.status === 'done') {
@@ -108,9 +143,12 @@ const BalancePage: React.FC = () => {
       form.setFieldsValue({
         company: record.company,
         cash: record.cash,
-        bank_acceptance: record.bank_acceptance,
+        bank_acceptance: record.bankAcceptance,
         meiyidan: record.meiyidan,
-        record_date: dayjs(record.record_date),
+        rongdan: record.rongdan,
+        jindan: record.jindan,
+        dilian: record.dilian,
+        record_date: dayjs(record.recordDate),
       });
     } else {
       form.resetFields();
@@ -127,29 +165,16 @@ const BalancePage: React.FC = () => {
         record_date: values.record_date.format('YYYY-MM-DD'),
       };
 
-      let url = editingRecord ? '/api/fund-balance/update' : '/api/fund-balance/add';
-      const method = editingRecord ? 'PUT' : 'POST';
-
       if (editingRecord) {
         submitData.id = editingRecord.id;
-      }
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        message.success(editingRecord ? '更新成功' : '添加成功');
-        setModalVisible(false);
-        fetchData();
+        await request.put('/fund-balance/update', submitData);
       } else {
-        message.error(result.message || '操作失败');
+        await request.post('/fund-balance/add', submitData);
       }
+
+      message.success(editingRecord ? '更新成功' : '添加成功');
+      setModalVisible(false);
+      fetchData();
     } catch (error) {
       message.error('操作失败');
       console.error('Error submitting form:', error);
@@ -159,17 +184,9 @@ const BalancePage: React.FC = () => {
   // 删除数据
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/fund-balance/delete/${id}`, {
-        method: 'DELETE',
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        message.success('删除成功');
-        fetchData();
-      } else {
-        message.error(result.message || '删除失败');
-      }
+      await request.delete(`/fund-balance/delete/${id}`);
+      message.success('删除成功');
+      fetchData();
     } catch (error) {
       message.error('删除失败');
       console.error('Error deleting data:', error);
@@ -186,24 +203,42 @@ const BalancePage: React.FC = () => {
       title: '现汇（元）',
       dataIndex: 'cash',
       key: 'cash',
-      render: (text: number) => text.toFixed(2),
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
     },
     {
       title: '银承（元）',
-      dataIndex: 'bank_acceptance',
-      key: 'bank_acceptance',
-      render: (text: number) => text.toFixed(2),
+      dataIndex: 'bankAcceptance',
+      key: 'bankAcceptance',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
     },
     {
       title: '美易单（元）',
       dataIndex: 'meiyidan',
       key: 'meiyidan',
-      render: (text: number) => text.toFixed(2),
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
+    },
+    {
+      title: '融单（元）',
+      dataIndex: 'rongdan',
+      key: 'rongdan',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
+    },
+    {
+      title: '金单（元）',
+      dataIndex: 'jindan',
+      key: 'jindan',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
+    },
+    {
+      title: '迪链（元）',
+      dataIndex: 'dilian',
+      key: 'dilian',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
     },
     {
       title: '记录日期',
-      dataIndex: 'record_date',
-      key: 'record_date',
+      dataIndex: 'recordDate',
+      key: 'recordDate',
     },
     {
       title: '操作',
@@ -247,7 +282,7 @@ const BalancePage: React.FC = () => {
               <Option value="昌泽">昌泽</Option>
               <Option value="丰驰">丰驰</Option>
             </Select>
-            <RangePicker 
+            {/* <RangePicker 
               onChange={(dates) => setDateRange(dates)}
               style={{ width: 300 }}
             />
@@ -257,7 +292,7 @@ const BalancePage: React.FC = () => {
               onClick={() => openModal()}
             >
               添加
-            </Button>
+            </Button> */}
             <Button 
               icon={<DownloadOutlined />}
               onClick={handleExport}
@@ -316,6 +351,27 @@ const BalancePage: React.FC = () => {
             rules={[{ required: true, message: '请输入美易单金额' }]}
           >
             <Input type="number" placeholder="请输入美易单金额" />
+          </Form.Item>
+          <Form.Item
+            name="rongdan"
+            label="融单（元）"
+            rules={[{ required: true, message: '请输入融单金额' }]}
+          >
+            <Input type="number" placeholder="请输入融单金额" />
+          </Form.Item>
+          <Form.Item
+            name="jindan"
+            label="金单（元）"
+            rules={[{ required: true, message: '请输入金单金额' }]}
+          >
+            <Input type="number" placeholder="请输入金单金额" />
+          </Form.Item>
+          <Form.Item
+            name="dilian"
+            label="迪链（元）"
+            rules={[{ required: true, message: '请输入迪链金额' }]}
+          >
+            <Input type="number" placeholder="请输入迪链金额" />
           </Form.Item>
           <Form.Item
             name="record_date"

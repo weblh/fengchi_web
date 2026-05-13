@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>财务智眸 | 全景看板+深度分析（含贴息/挂牌价）</title>
+    <title>财务智眸 | 精细化应收（现汇/承兑拆分）</title>
     <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -102,11 +102,10 @@
             flex-shrink: 0;
         }
         .pie-chart { width: 100%; flex: 1; min-height: 0; }
-        /* 一级面板图表高度基于视口，确保两行铺满且不滚动 */
         #pagePie .pie-chart { height: 32vh; }
         .charts-grid {
             display: grid;
-            grid-template-columns: 1fr; /* 1x1 布局 */
+            grid-template-columns: 1fr;
             grid-template-rows: 1fr;
             gap: 0;
             flex: 1;
@@ -118,15 +117,14 @@
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(8px);
             border-radius: 20px;
-            padding: 16px 24px; /* 适当增加内边距 */
+            padding: 16px 24px;
             border: 1px solid rgba(255, 255, 255, 0.7);
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            height: 100%; /* 充满父容器 */
+            height: 100%;
         }
-        /* 二级面板图表高度充满屏幕 */
         .chart-container { width: 100%; height: 75vh; min-height: 0; flex: 1; }
         .chart-header-kpis {
             display: flex;
@@ -146,6 +144,7 @@
             border-bottom: 1px solid #e2e8f0;
             padding-bottom: 8px;
             flex-shrink: 0;
+            flex-wrap: wrap;
         }
         #pageChart .chart-card h3 i,
         #pageChart .chart-card .kpi-title i {
@@ -241,24 +240,21 @@
 </head>
 <body>
 
-<!-- 一级看板 -->
 <div id="pagePie" class="page">
     <div class="page-header">
-        <h1></h1>
+        <h1>📊 财务智眸 · 全景看板</h1>
     </div>
     <div class="pie-grid" id="pieGridContainer"></div>
 </div>
 
-<!-- 二级看板（包含原有所有卡片 + 新增综合融资卡片） -->
 <div id="pageChart" class="page hidden">
     <div class="page-header">
-        <h1></h1>
+        <h1>📈 深度分析 · 应收明细（现汇/承兑拆分）</h1>
         <div class="back-link" id="backToLevel1Btn">
             <i class="fas fa-arrow-left"></i> 返回一级
         </div>
     </div>
     <div class="charts-grid" id="secondaryGrid">
-        <!-- 资金余额卡片 -->
         <div class="chart-card" id="fundsCard">
             <div class="chart-header-kpis">
                 <div class="kpi-title"><i class="fas fa-coins"></i> 每日资金余额 (万元)</div>
@@ -266,18 +262,17 @@
             </div>
             <div id="chartFunds" class="chart-container"></div>
         </div>
-        <!-- 应收账款明细卡片 (丰驰/昌泽/耀通/铁合金/钢丸) -->
         <div class="chart-card" id="receivableCard">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                <div class="kpi-title" style="margin:0;"><i class="fas fa-receipt"></i> 应收账款明细</div>
+                <div class="kpi-title" style="margin:0;"><i class="fas fa-receipt"></i> 应收账款明细 (堆积柱状图·现汇/承兑拆分)</div>
                 <div class="date-selector" id="receivableDateBadge"><span class="status-dot"></span> -</div>
             </div>
             <div class="tab-header-mini" id="receivableTabsHeader">
-                <button class="mini-tab-btn active" data-tab="fengchi">丰驰</button>
-                <button class="mini-tab-btn" data-tab="changze">昌泽</button>
-                <button class="mini-tab-btn" data-tab="yaotong">耀通</button>
-                <button class="mini-tab-btn" data-tab="ferro">铁合金</button>
-                <button class="mini-tab-btn" data-tab="steel">钢丸</button>
+                <button class="mini-tab-btn active" data-tab="fengchi">丰驰 (主料+钢丸·承兑为主)</button>
+                <button class="mini-tab-btn" data-tab="changze">昌泽 (主料+铁合金·现汇)</button>
+                <button class="mini-tab-btn" data-tab="yaotong">耀通 (主料)</button>
+                <button class="mini-tab-btn" data-tab="ferro">铁合金独立 (现汇)</button>
+                <button class="mini-tab-btn" data-tab="steel">钢丸独立 (承兑)</button>
             </div>
             <div id="detailChartContainer" class="detail-chart-container"></div>
             <div class="kpi-mini-row">
@@ -285,7 +280,6 @@
                 <div class="kpi-mini-item"><span class="kpi-mini-label">逾期总额</span><div id="detailOverdueTotal" class="kpi-mini-value">-</div></div>
             </div>
         </div>
-        <!-- 每日付款计划 -->
         <div class="chart-card" id="planCard">
             <div class="chart-header-kpis">
                 <div class="mini-kpi">
@@ -296,563 +290,649 @@
             </div>
             <div id="chartPaymentPlan" class="chart-container"></div>
         </div>
-
-        <!-- ========= 新增卡片：贴现/利息/挂牌价 三标签页（与综合利率联动） ========= -->
         <div class="chart-card" id="discountCard">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-                <h3 style="font-size:0.95rem; margin:0;"></h3>
-            </div>
             <div class="triple-tab-container">
                 <div class="triple-tabs">
-                    <button class="triple-tab" data-discount-tab="interest">📉 贴现利息 (月度)</button>
-                    <button class="triple-tab" data-discount-tab="price">🏷️ 2月挂牌价结构</button>
+                    <button class="triple-tab active" data-discount-tab="price">🏷️ 2月挂牌价结构</button>
+                    <button class="triple-tab" data-discount-tab="rate">📈 利率分析 (折线图)</button>
                 </div>
                 <div class="triple-chart-panel">
-                    <div id="panelAmountChart" class="panel-chart" style="display: block;"></div>
                     <div id="panelInterestChart" class="panel-chart" style="display: none;"></div>
-                    <div id="panelPriceChart" class="panel-chart" style="display: none;"></div>
+                    <div id="panelPriceChart" class="panel-chart" style="display: block;"></div>
+                    <div id="panelRateChart" class="panel-chart" style="display: none;"></div>
                 </div>
             </div>
-            <div class="click-hint" style="margin-top: 6px;"><i class="fas fa-chart-simple"></i> 数据源：月度综合贴现金额/利息 | 挂牌价基于2月市场参考</div>
+            <div class="click-hint"><i class="fas fa-chart-simple"></i> 贴现利息按月展示 | 挂牌价基于2月市场参考</div>
         </div>
     </div>
 </div>
 
 <script>
-    // ======================= 基础数据 ========================
-    const dailyFundsRaw = { units: ['耀通', '昌泽', '丰驰'], 现汇: [822189.45, 549463.22, 312689.32], 银承: [17456717.01, 5038268.44, 15537677.01], 美易单: [0, 0, 83283.6] };
-    const companyTotal = dailyFundsRaw.units.map((_, idx) => dailyFundsRaw.现汇[idx] + dailyFundsRaw.银承[idx] + dailyFundsRaw.美易单[idx]);
-    const sortedIndices = [...Array(dailyFundsRaw.units.length).keys()].sort((a,b) => companyTotal[b] - companyTotal[a]);
-    const sortedFunds = { units: sortedIndices.map(i => dailyFundsRaw.units[i]), 现汇: sortedIndices.map(i => dailyFundsRaw.现汇[i]), 银承: sortedIndices.map(i => dailyFundsRaw.银承[i]), 美易单: sortedIndices.map(i => dailyFundsRaw.美易单[i]) };
-    
-    // 丰驰、昌泽、耀通应收账款数据（按客户分类）
-    const companyData = {
-        fengchi: {
-            name: '丰驰',
-            clients: ['精密', '圣德曼', '洪洞', '翼城', '重工'],
-            book: [5976988.68, 10912567.54, 12830866.13, 320978.01, 1963551.08],
-            overdue: [4853611.75, 4605914.36, 5395887.70, 320978.01, 1291777.50]
-        },
-        changze: {
-            name: '昌泽',
-            clients: ['精密', '圣德曼', '洪洞', '翼城', '重工'],
-            book: [480791.13, 4689962.08, 1552166.71, 0, 0],
-            overdue: [384632.90, 2117877.34, 1241733.37, 0, 0]
-        },
-        yaotong: {
-            name: '耀通',
-            clients: ['精密', '圣德曼', '洪洞', '翼城', '重工'],
-            book: [1371342.99, 12921720.00, 2817905.40, 0, 0],
-            overdue: [753346.39, 5667214.59, 1521343.46, 0, 0]
+    (function(){
+        // ======================= 基础数据（资金余额、付款计划等） ========================
+        const dailyFundsRaw = { units: ['耀通', '昌泽', '丰驰'], 现汇: [822189.45, 549463.22, 312689.32], 银承: [17456717.01, 5038268.44, 15537677.01], 美易单: [0, 0, 83283.6] };
+        const companyTotal = dailyFundsRaw.units.map((_, idx) => dailyFundsRaw.现汇[idx] + dailyFundsRaw.银承[idx] + dailyFundsRaw.美易单[idx]);
+        const sortedIndices = [...Array(dailyFundsRaw.units.length).keys()].sort((a,b) => companyTotal[b] - companyTotal[a]);
+        const sortedFunds = { units: sortedIndices.map(i => dailyFundsRaw.units[i]), 现汇: sortedIndices.map(i => dailyFundsRaw.现汇[i]), 银承: sortedIndices.map(i => dailyFundsRaw.银承[i]), 美易单: sortedIndices.map(i => dailyFundsRaw.美易单[i]) };
+        
+        // 主料应收（基于截图真实数值） 客户顺序: 精密,圣德曼,洪洞,翼城,重工
+        const customers = ['精密','圣德曼','洪洞','翼城','重工'];
+        // 丰驰
+        const fcSpotBook = [1734006.43, 6997432.91, 720138.72, 31487.55, 165224.00];
+        const fcAcceptBook = [4242982.25, 3915134.63, 12110727.41, 289490.46, 1798327.08];
+        const fcSpotOverdue = [1734006.43, 2911375.36, 720138.72, 31487.55, 165224.00];
+        const fcAcceptOverdue = [3119605.32, 1694539.00, 4675748.976, 289490.46, 1126553.504];
+        // 昌泽
+        const czSpotBook = [184850.00, 1345528.68, 0, 0, 0];
+        const czAcceptBook = [480791.13, 3344433.40, 1552166.71, 0, 0];
+        const czSpotOverdue = [0, 630416.864, 0, 0, 0];
+        const czAcceptOverdue = [384632.904, 1487460.480, 1241733.368, 0, 0];
+        // 耀通
+        const ytSpotBook = [0,0,0,0,0];
+        const ytAcceptBook = [1371342.99, 12921720.00, 2817905.40, 0, 0];
+        const ytSpotOverdue = [0,0,0,0,0];
+        const ytAcceptOverdue = [753346.392, 5667214.592, 1521343.456, 0, 0];
+        
+        // 钢丸（承兑）债务人丰驰
+        const steelClients = ['精密','圣德曼','洪洞','轻合金','翼城','广东翔泰','重工'];
+        const steelBook = [695615.9, 3850575.5, 6214313.1, 140244, 257182.3, 58170, 288528.8];
+        const steelOverdue = [0,0,0,0,103537.8,0,8160.6];
+        
+        // 铁合金（现汇）债务人昌泽
+        const ferroClients = ['精密','圣德曼','洪洞','翼城','重工'];
+        const ferroBook = [371318.5, 695580.4, 1783018.6, 195671.7, 593630];
+        const ferroOverdue = [201953.2, 0, 827992.7, 195671.7, 593630];
+        
+        // 合并丰驰（主料+钢丸） —— 构建合并客户列表及现汇/承兑数据
+        function buildFengchiMerged() {
+            let clients = [...customers];
+            let spotBook = [...fcSpotBook];
+            let acceptBook = [...fcAcceptBook];
+            let spotOverdue = [...fcSpotOverdue];
+            let acceptOverdue = [...fcAcceptOverdue];
+            for (let i=0; i<steelClients.length; i++) {
+                const sc = steelClients[i];
+                if (!clients.includes(sc)) clients.push(sc);
+                const idx = clients.indexOf(sc);
+                if (idx >= spotBook.length) {
+                    spotBook.push(0); acceptBook.push(0); spotOverdue.push(0); acceptOverdue.push(0);
+                }
+                acceptBook[idx] += steelBook[i];
+                acceptOverdue[idx] += steelOverdue[i];
+            }
+            return { clients, spotBook, acceptBook, spotOverdue, acceptOverdue };
         }
-    };
-    
-    // 铁合金
-    const ferroRaw = [{ client: '精密', book: 371318.5, overdue: 371318.5-169365.3 },{ client: '圣德曼', book: 695580.4, overdue: 0 },{ client: '洪洞', book: 1783018.6, overdue: 1783018.6-955025.9 },{ client: '翼城', book: 195671.7, overdue: 195671.7 },{ client: '重工', book: 593630, overdue: 593630 }];
-    const ferroSorted = [...ferroRaw].sort((a,b) => b.book - a.book);
-    const ferroClients = ferroSorted.map(v => v.client);
-    const ferroBooks = ferroSorted.map(v => v.book);
-    const ferroOverdue = ferroSorted.map(v => v.overdue);
-    const totalFerroBook = ferroBooks.reduce((a,b)=>a+b,0);
-    const totalFerroOverdue = ferroOverdue.reduce((a,b)=>a+b,0);
-    
-    // 钢丸
-    const steelRaw = [{ client: '精密', book: 835127.3-139511.4, overdue: 0 },{ client: '圣德曼', book: 3850575.5, overdue: 0 },{ client: '洪洞', book: 6214313.1, overdue: 0 },{ client: '轻合金', book: 140244, overdue: 0 },{ client: '翼城', book: 257182.3, overdue: 103537.8 },{ client: '广东翔泰', book: 58170, overdue: 0 },{ client: '重工', book: 288528.8, overdue: 8160.6 }];
-    const steelSorted = [...steelRaw].sort((a,b) => b.book - a.book);
-    const steelClients = steelSorted.map(v => v.client);
-    const steelBooks = steelSorted.map(v => v.book);
-    const steelOverdueList = steelSorted.map(v => v.overdue);
-    const totalSteelBook = steelBooks.reduce((a,b)=>a+b,0);
-    const totalSteelOverdue = steelOverdueList.reduce((a,b)=>a+b,0);
-    
-    // 构建合并后的应收账款数据（仅使用铁合金和钢丸数据，因为主料数据已替换为公司数据）
-    function buildMergedReceivable() {
-        const auxMap = new Map();
-        ferroRaw.forEach(item => { const c = item.client; if(!auxMap.has(c)) auxMap.set(c,{book:0,overdue:0}); const cur=auxMap.get(c); cur.book+=item.book; cur.overdue+=item.overdue; });
-        steelRaw.forEach(item => { const c = item.client; if(!auxMap.has(c)) auxMap.set(c,{book:0,overdue:0}); const cur=auxMap.get(c); cur.book+=item.book; cur.overdue+=item.overdue; });
-        let mergedArray = Array.from(auxMap.entries()).map(([client, data]) => ({ client, book: data.book, overdue: data.overdue }));
-        mergedArray.sort((a,b) => b.book - a.book);
-        return mergedArray;
-    }
-    const mergedReceivables = buildMergedReceivable();
-    const mergedClients = mergedReceivables.map(v => v.client);
-    const mergedBookValues = mergedReceivables.map(v => v.book);
-    const mergedOverdueValues = mergedReceivables.map(v => v.overdue);
-    
-    const paymentPlanRaw = [
-        { company: "耀通", suppliers: [{ name: "信阳华鑫汇", amount: 100 }, { name: "天津利都", amount: 200 }, { name: "信阳申淮", amount: 100 }, { name: "大城隆越", amount: 100 }, { name: "湖北翰联", amount: 50 }] },
-        { company: "丰驰", suppliers: [{ name: "信阳华鑫汇", amount: 100 }, { name: "天津利都", amount: 100 }, { name: "信阳申淮", amount: 100 }, { name: "陕西聚运", amount: 200 }, { name: "陕西锦邦", amount: 100 }, { name: "大城隆越", amount: 100 }, { name: "湖北翰联", amount: 100 }] },
-        { company: "昌泽", suppliers: [{ name: "信阳华鑫汇", amount: 50 }, { name: "虎溪铜盐厂", amount: 50 }] },
-        { company: "现汇户", suppliers: [{ name: "个人", amount: 100 }] }
-    ];
-    const paymentPlanWithTotals = paymentPlanRaw.map(cd => ({ ...cd, totalAmount: cd.suppliers.reduce((s,sup)=>s+sup.amount,0) })).sort((a,b)=>a.totalAmount - b.totalAmount);
-    const chartCompanies = paymentPlanWithTotals.map(d => d.company);
-    const allSuppliers = [...new Set(paymentPlanRaw.flatMap(d => d.suppliers.map(s => s.name)))];
-    const monthlyPayment = { cash: 12720329, bankAccept: 40965096.89 };
-    function toWanInt(yuan) { return Math.round(yuan / 10000); }
-    
-    // 月度贴现金额/利息 (万元)
-    const rawDiscountAmount = [40632176.60, 23306867.67, 50462014.60, 57715804.16, 77434840.07, 68106578.02, 63487140.63, 62311076.62, 95549908.74, 94832301.24, 86342598.39, 91204797.28];
-    const rawDiscountInterest = [438332.31, 142905.95, 498239.06, 458246.22, 532686.61, 492628.54, 529290.14, 424633.61, 630215.43, 626037.21, 539236.62, 1020669.75];
-    const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-    const discountAmountWan = rawDiscountAmount.map(v => toWanInt(v));
-    const discountInterestWan = rawDiscountInterest.map(v => toWanInt(v));
-    // 二月挂牌价数据将在renderDiscountPanel函数中定义
-    const monthlyInterestRateData = [
-        { name: '1月', value: 11.4 }, { name: '2月', value: 6.49 }, { name: '3月', value: 10.4 },
-        { name: '4月', value: 8.39 }, { name: '5月', value: 7.29 }, { name: '6月', value: 7.66 },
-        { name: '7月', value: 8.82 }, { name: '8月', value: 7.18 }, { name: '9月', value: 6.97 },
-        { name: '10月', value: 6.97 }, { name: '11月', value: 6.6 }, { name: '12月', value: 11.83 }
-    ];
-    
-    // 今日日期（YYYY-MM-DD）
-    function todayStr() {
-        const d = new Date();
-        const y = d.getFullYear();
-        const m = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${y}-${m}-${day}`;
-    }
-    // 几月第几周
-    function monthWeekStr() {
-        const d = new Date();
-        const m = d.getMonth() + 1;
-        const week = Math.ceil(d.getDate() / 7);
-        return `${m}月 第${week}周`;
-    }
-    
-    // 全局图表实例
-    let activeDetailChart = null;
-    let fundChart, planChart;
-    let amountChartInst = null, interestChartInst = null, priceChartInst = null;
-    let currentActiveTab = 'interest';
-    
-    function renderDiscountPanel(activeTab) {
-        const amountDiv = document.getElementById('panelAmountChart');
-        const interestDiv = document.getElementById('panelInterestChart');
-        const priceDiv = document.getElementById('panelPriceChart');
-        if(!amountDiv || !interestDiv || !priceDiv) return;
-        amountDiv.style.display = 'none';
-        interestDiv.style.display = 'none';
-        priceDiv.style.display = 'none';
-        // 只显示利息和挂牌价，不显示贴现金额
-        if(activeTab === 'interest') interestDiv.style.display = 'block';
-        if(activeTab === 'price') priceDiv.style.display = 'block';
-        if(amountChartInst) { amountChartInst.dispose(); amountChartInst = null; }
-        if(interestChartInst) { interestChartInst.dispose(); interestChartInst = null; }
-        if(priceChartInst) { priceChartInst.dispose(); priceChartInst = null; }
-        if(activeTab === 'interest') {
-            // 对贴现利息数据按降序排序
-            const sortedInterestData = months.map((month, index) => ({
-                month,
-                value: discountInterestWan[index]
-            })).sort((a, b) => b.value - a.value);
-            
-            const sortedMonths = sortedInterestData.map(item => item.month);
-            const sortedValues = sortedInterestData.map(item => item.value);
-            
-            interestChartInst = echarts.init(interestDiv);
-            interestChartInst.setOption({
-                tooltip: { trigger: 'axis', formatter: '{b}<br/>贴现利息: {c} 万元' },
-                xAxis: { type: 'category', data: sortedMonths, axisLabel: { rotate: 30, fontSize: 10 } },
-                yAxis: { type: 'value', name: '万元', nameTextStyle: { fontSize: 10 } },
-                series: [{ 
-                    name: '月度贴现利息', 
-                    type: 'bar', 
-                    data: sortedValues, 
-                    itemStyle: { 
-                        color: '#f97316', 
-                        borderRadius: [6,6,0,0]
-                    },
-                    label: { 
-                        show: true, 
-                        position: 'top', 
-                        formatter: '{c}', 
-                        fontSize: 9, 
-                        color: '#000',
-                        fontWeight: 'bold'
-                    }
-                }],
-                grid: { top: 40, left: 50, right: 20, bottom: 40 }
-            });
-        } else if(activeTab === 'price') {
-            // 更新二月挂牌价数据
-            const febListingData = [
-                { name: '银承', value: 1.30 },
-                { name: '美易单', value: 2.80 },
-                { name: '融单', value: 3.86 },
-                { name: '金单', value: 7.20 },
-                { name: '迪链', value: 2.98 }
-            ];
-            
-            priceChartInst = echarts.init(priceDiv);
-            priceChartInst.setOption({
-                tooltip: { trigger: 'item', formatter: '{b}: {c}% ({d}%)' },
-                legend: { orient: 'vertical', left: 'left', textStyle: { fontSize: 9 }, itemWidth: 10 },
-                series: [{ type: 'pie', radius: '55%', center: ['50%', '50%'], data: febListingData, label: { show: true, formatter: '{b}\n{c}%', fontSize: 9 }, itemStyle: { borderRadius: 8, borderColor: '#fff', borderWidth: 2 } }]
-            });
+        // 合并昌泽（主料+铁合金）
+        function buildChangzeMerged() {
+            let clients = [...customers];
+            let spotBook = [...czSpotBook];
+            let acceptBook = [...czAcceptBook];
+            let spotOverdue = [...czSpotOverdue];
+            let acceptOverdue = [...czAcceptOverdue];
+            for (let i=0; i<ferroClients.length; i++) {
+                const fc = ferroClients[i];
+                if (!clients.includes(fc)) clients.push(fc);
+                const idx = clients.indexOf(fc);
+                if (idx >= spotBook.length) {
+                    spotBook.push(0); acceptBook.push(0); spotOverdue.push(0); acceptOverdue.push(0);
+                }
+                spotBook[idx] += ferroBook[i];
+                spotOverdue[idx] += ferroOverdue[i];
+            }
+            return { clients, spotBook, acceptBook, spotOverdue, acceptOverdue };
         }
-    }
-    
-    function bindTripleTabs() {
-        const tabs = document.querySelectorAll('.triple-tab');
-        tabs.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const tabKey = btn.getAttribute('data-discount-tab');
-                if(!tabKey) return;
-                currentActiveTab = tabKey;
-                tabs.forEach(t => t.classList.remove('active'));
-                btn.classList.add('active');
-                renderDiscountPanel(currentActiveTab);
-                setTimeout(() => {
-                    if(currentActiveTab === 'amount' && amountChartInst) amountChartInst.resize();
-                    if(currentActiveTab === 'interest' && interestChartInst) interestChartInst.resize();
-                    if(currentActiveTab === 'price' && priceChartInst) priceChartInst.resize();
-                }, 80);
-            });
-        });
-    }
-    
-    function renderSecondLevelOthers() {
-        if (fundChart) fundChart.dispose();
-        // 对资金余额数据按总金额降序排序
-        const sortedFundsData = sortedFunds.units.map((unit, index) => ({
-            unit,
-            现汇: sortedFunds.现汇[index],
-            银承: sortedFunds.银承[index],
-            美易单: sortedFunds.美易单[index],
-            total: sortedFunds.现汇[index] + sortedFunds.银承[index] + sortedFunds.美易单[index]
-        })).sort((a, b) => b.total - a.total);
+        const fengchiMerged = buildFengchiMerged();
+        const changzeMerged = buildChangzeMerged();
+        // 耀通直接使用主料数据
+        const yaotongMerged = { clients: customers, spotBook: ytSpotBook, acceptBook: ytAcceptBook, spotOverdue: ytSpotOverdue, acceptOverdue: ytAcceptOverdue };
         
-        const sortedUnits = sortedFundsData.map(item => item.unit);
-        const sortedXianhui = sortedFundsData.map(item => toWanInt(item.现汇));
-        const sortedYincheng = sortedFundsData.map(item => toWanInt(item.银承));
-        const sortedMeiyi = sortedFundsData.map(item => toWanInt(item.美易单));
+        // 计算各债务人按现汇/承兑拆分的总额（用于一级面板新柱状图）
+        function calcSplitTotals(merged) {
+            let spotBookTotal = 0, acceptBookTotal = 0, spotOverdueTotal = 0, acceptOverdueTotal = 0;
+            for (let i=0; i<merged.clients.length; i++) {
+                spotBookTotal += merged.spotBook[i];
+                acceptBookTotal += merged.acceptBook[i];
+                spotOverdueTotal += merged.spotOverdue[i];
+                acceptOverdueTotal += merged.acceptOverdue[i];
+            }
+            return { spotBookTotal, acceptBookTotal, spotOverdueTotal, acceptOverdueTotal };
+        }
+        const fengchiSplit = calcSplitTotals(fengchiMerged);
+        const changzeSplit = calcSplitTotals(changzeMerged);
+        const yaotongSplit = calcSplitTotals(yaotongMerged);
         
-
+        // 一级柱状图数据：每个公司四个数值（现汇账面，承兑账面，现汇逾期，承兑逾期）
+        const companies = ['丰驰', '昌泽', '耀通'];
+        const spotBookData = [fengchiSplit.spotBookTotal, changzeSplit.spotBookTotal, yaotongSplit.spotBookTotal];
+        const acceptBookData = [fengchiSplit.acceptBookTotal, changzeSplit.acceptBookTotal, yaotongSplit.acceptBookTotal];
+        const spotOverdueData = [fengchiSplit.spotOverdueTotal, changzeSplit.spotOverdueTotal, yaotongSplit.spotOverdueTotal];
+        const acceptOverdueData = [fengchiSplit.acceptOverdueTotal, changzeSplit.acceptOverdueTotal, yaotongSplit.acceptOverdueTotal];
         
-        fundChart = echarts.init(document.getElementById('chartFunds'));
-        fundChart.setOption({ color: ['#3b82f6','#10b981','#f59e0b'], tooltip: { trigger: 'axis' }, legend: { bottom: 0 }, xAxis: { type: 'category', data: sortedUnits }, yAxis: { type: 'value', name: '万元' }, series: [
-            { name: '现汇', type: 'bar', data: sortedXianhui, label: { show: true } },
-            { name: '银承', type: 'bar', data: sortedYincheng, label: { show: true } },
-            { name: '美易单', type: 'bar', data: sortedMeiyi, label: { show: true } }
-        ]});
-        const today = todayStr();
-        const fundsBadge = document.getElementById('fundsDateBadge');
-        if (fundsBadge) fundsBadge.innerHTML = `<span class="status-dot"></span> 日期: ${today}`;
-        const recvBadge = document.getElementById('receivableDateBadge');
-        if (recvBadge) recvBadge.innerHTML = `<span class="status-dot"></span> ${monthWeekStr()}`;
+        const totalAllBook = spotBookData.reduce((a,b)=>a+b,0) + acceptBookData.reduce((a,b)=>a+b,0);
+        const totalAllOverdue = spotOverdueData.reduce((a,b)=>a+b,0) + acceptOverdueData.reduce((a,b)=>a+b,0);
         
-        const totalPlan = paymentPlanWithTotals.reduce((s,item)=>s+item.totalAmount,0);
-        document.getElementById('paymentPlanTotalVal').innerText = totalPlan.toLocaleString();
-        // 对付款计划数据按总金额降序排序
-        const sortedPaymentPlan = [...paymentPlanWithTotals].sort((a, b) => b.totalAmount - a.totalAmount);
-        const sortedChartCompanies = sortedPaymentPlan.map(d => d.company);
-        const paymentPlanSeries = allSuppliers.map(supName => ({ name: supName, type: 'bar', stack: 'total', barWidth: '60%', data: sortedChartCompanies.map(comp => { const cd = sortedPaymentPlan.find(d=>d.company===comp); const sup = cd?.suppliers.find(s=>s.name===supName); return sup ? sup.amount : 0; }), label: { show: true, position: 'inside', fontSize: 9, formatter: function(params) { return params.value > 0 ? params.value : ''; } } }));
-        if (planChart) planChart.dispose();
-        planChart = echarts.init(document.getElementById('chartPaymentPlan'));
-        planChart.setOption({ tooltip: { trigger: 'axis' }, legend: { top: 8, type: 'scroll' }, xAxis: { type: 'value', name: '万元' }, yAxis: { type: 'category', data: sortedChartCompanies }, series: paymentPlanSeries });
-        const planBadge = document.getElementById('planDateBadge');
-        if (planBadge) planBadge.innerHTML = `<span class="status-dot"></span> 日期: ${today}`;
-    }
-    
-    function renderDetailChart(tab) {
-        const container = document.getElementById('detailChartContainer');
-        if (!container) return;
-        if (activeDetailChart) { activeDetailChart.dispose(); activeDetailChart = null; }
-        const newChart = echarts.init(container);
+        // 独立铁合金、钢丸数据（用于独立tab）
+        const ferroTotalBook = ferroBook.reduce((a,b)=>a+b,0);
+        const ferroTotalOverdue = ferroOverdue.reduce((a,b)=>a+b,0);
+        const steelTotalBook = steelBook.reduce((a,b)=>a+b,0);
+        const steelTotalOverdue = steelOverdue.reduce((a,b)=>a+b,0);
         
-        if (companyData[tab]) {
-            const data = companyData[tab];
-            // 对客户数据按账面应收降序排序
-            const sortedClientData = data.clients.map((client, index) => ({
-                client,
-                book: data.book[index],
-                overdue: data.overdue[index]
-            })).sort((a, b) => b.book - a.book);
-            
-            const sortedClients = sortedClientData.map(item => item.client);
-            const sortedBookValues = sortedClientData.map(item => toWanInt(item.book));
-            const sortedOverdueValues = sortedClientData.map(item => toWanInt(item.overdue));
-            const totalBook = data.book.reduce((sum, val) => sum + val, 0);
-            const totalOverdue = data.overdue.reduce((sum, val) => sum + val, 0);
-            
-            newChart.setOption({
-                tooltip: { trigger: 'axis' },
-                legend: { data: ['账面应收', '逾期金额'] },
-                xAxis: { type: 'category', data: sortedClients, axisLabel: { rotate: 20, fontSize: 10 } },
+        // 付款计划
+        const paymentPlanRaw = [
+            { company: "耀通", suppliers: [{ name: "信阳华鑫汇", amount: 100 }, { name: "天津利都", amount: 200 }, { name: "信阳申淮", amount: 100 }, { name: "大城隆越", amount: 100 }, { name: "湖北翰联", amount: 50 }] },
+            { company: "丰驰", suppliers: [{ name: "信阳华鑫汇", amount: 100 }, { name: "天津利都", amount: 100 }, { name: "信阳申淮", amount: 100 }, { name: "陕西聚运", amount: 200 }, { name: "陕西锦邦", amount: 100 }, { name: "大城隆越", amount: 100 }, { name: "湖北翰联", amount: 100 }] },
+            { company: "昌泽", suppliers: [{ name: "信阳华鑫汇", amount: 50 }, { name: "虎溪铜盐厂", amount: 50 }] },
+            { company: "现汇户", suppliers: [{ name: "个人", amount: 100 }] }
+        ];
+        const paymentPlanWithTotals = paymentPlanRaw.map(cd => ({ ...cd, totalAmount: cd.suppliers.reduce((s,sup)=>s+sup.amount,0) })).sort((a,b)=>a.totalAmount - b.totalAmount);
+        const allSuppliers = [...new Set(paymentPlanRaw.flatMap(d => d.suppliers.map(s => s.name)))];
+        
+        const rawDiscountInterest = [438332.31, 142905.95, 498239.06, 458246.22, 532686.61, 492628.54, 529290.14, 424633.61, 630215.43, 626037.21, 539236.62, 1020669.75];
+        const months = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+        const discountInterestWan = rawDiscountInterest.map(v => v/10000);
+        
+        // 利率数据（一级折线图）
+        const rateMonthly = [2.16,1.23,1.97,1.59,1.38,1.45,1.67,1.36,1.32,1.32,1.25,2.24];
+        
+        // 利率分析数据（二级折线图）
+        const rateAnalysisData = {
+            months: ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '2026年1月', '2026年2月'],
+            银承: [1.25, 0.97, 1.28, 1.26, 0.91, 0.80, 0.96, 0.56, 1.28, 0.56, 0.56, 1.02, 1.03, 0.84],
+            美易单: [3.14, 2.65, 3.69, 2.25, 3.04, 2.45, 3.11, 3.19, 1.24, 2.57, 2.41, 2.86, 2.39, 2.40],
+            融单: [3.47, 3.10, 3.40, 2.72, 3.04, 2.86, 3.11, 3.19, 2.01, 3.18, 3.30, 3.50, 3.10, 3.11],
+            金单: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2.63, 2.43, 0, 0],
+            迪链: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1.33, 0],
+            商承: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2.01, 0, 0]
+        };
+        
+        // 工具函数
+        function toWanFixed(yuan) { return (yuan/10000).toFixed(2); }
+        function todayStr() { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+        function monthWeekStr() { const d=new Date(); return `${d.getMonth()+1}月 第${Math.ceil(d.getDate()/7)}周`; }
+        
+        // 全局图表实例
+        let activeDetailChart = null;
+        let fundChart=null, planChart=null;
+        let interestChart=null, priceChart=null, rateChart=null;
+        
+        // 二级：资金余额 & 付款计划 (保持不变)
+        function renderSecondaryStatic() {
+            if (fundChart) fundChart.dispose();
+            const fundsData = sortedFunds.units.map((unit,idx) => ({ unit, 现汇: sortedFunds.现汇[idx]/10000, 银承: sortedFunds.银承[idx]/10000, 美易单: sortedFunds.美易单[idx]/10000 }));
+            fundChart = echarts.init(document.getElementById('chartFunds'));
+            fundChart.setOption({
+                tooltip: { trigger: 'axis', valueFormatter: (v) => (v||0).toFixed(2)+'万元' },
+                legend: { bottom: 0 },
+                xAxis: { type: 'category', data: fundsData.map(d=>d.unit) },
                 yAxis: { name: '万元' },
                 series: [
-                    { 
-                        name: '账面应收', 
-                        type: 'bar', 
-                        data: sortedBookValues, 
-                        itemStyle: { color: '#2f73ff' }, 
-                        label: { show: true, position: 'top', fontSize: 9 }
+                    { name: '现汇', type: 'bar', data: fundsData.map(d=>d.现汇), itemStyle: { color: '#3b82f6' }, label: { show: true, formatter: p => p.value.toFixed(2) } },
+                    { name: '银承', type: 'bar', data: fundsData.map(d=>d.银承), itemStyle: { color: '#10b981' }, label: { show: true, formatter: p => p.value.toFixed(2) } },
+                    { name: '美易单', type: 'bar', data: fundsData.map(d=>d.美易单), itemStyle: { color: '#f59e0b' }, label: { show: true, formatter: p => p.value.toFixed(2) } }
+                ]
+            });
+            document.getElementById('fundsDateBadge').innerHTML = `<span class="status-dot"></span> ${todayStr()}`;
+            document.getElementById('receivableDateBadge').innerHTML = `<span class="status-dot"></span> ${monthWeekStr()}`;
+            
+            const totalPlan = paymentPlanWithTotals.reduce((s,i)=>s+i.totalAmount,0);
+            document.getElementById('paymentPlanTotalVal').innerText = totalPlan.toFixed(2);
+            const sortedPlan = [...paymentPlanWithTotals].sort((a,b)=>b.totalAmount - a.totalAmount);
+            if (planChart) planChart.dispose();
+            planChart = echarts.init(document.getElementById('chartPaymentPlan'));
+            const planSeries = allSuppliers.map(sup => ({
+                name: sup, type: 'bar', stack: 'total', barWidth: '60%',
+                data: sortedPlan.map(comp => comp.suppliers.find(s=>s.name===sup)?.amount || 0),
+                label: { show: true, position: 'inside', formatter: p => p.value>0 ? p.value.toFixed(0) : '' }
+            }));
+            planChart.setOption({
+                tooltip: { trigger: 'axis', valueFormatter: v => (v||0).toFixed(0)+'万元' },
+                legend: { top: 8, type: 'scroll' },
+                xAxis: { type: 'value', name: '万元' },
+                yAxis: { type: 'category', data: sortedPlan.map(d=>d.company) },
+                series: planSeries
+            });
+            document.getElementById('planDateBadge').innerHTML = `<span class="status-dot"></span> ${todayStr()}`;
+        }
+        
+        // 二级：应收账款明细图表（堆积柱状图：账面现汇+承兑堆叠，逾期现汇+承兑堆叠）—— 保持不变
+        function renderReceivableDetail(tab) {
+            const container = document.getElementById('detailChartContainer');
+            if (!container) return;
+            if (activeDetailChart) activeDetailChart.dispose();
+            let data;
+            if (tab === 'fengchi') data = fengchiMerged;
+            else if (tab === 'changze') data = changzeMerged;
+            else if (tab === 'yaotong') data = yaotongMerged;
+            else if (tab === 'ferro') {
+                const tmp = { clients: ferroClients, spotBook: ferroBook, acceptBook: new Array(ferroClients.length).fill(0), spotOverdue: ferroOverdue, acceptOverdue: new Array(ferroClients.length).fill(0) };
+                data = tmp;
+            } else if (tab === 'steel') {
+                const tmp = { clients: steelClients, spotBook: new Array(steelClients.length).fill(0), acceptBook: steelBook, spotOverdue: new Array(steelClients.length).fill(0), acceptOverdue: steelOverdue };
+                data = tmp;
+            } else return;
+            
+            const bookTotal = data.spotBook.reduce((a,b)=>a+b,0) + data.acceptBook.reduce((a,b)=>a+b,0);
+            const overdueTotal = data.spotOverdue.reduce((a,b)=>a+b,0) + data.acceptOverdue.reduce((a,b)=>a+b,0);
+            document.getElementById('detailBookTotal').innerHTML = '¥' + toWanFixed(bookTotal) + '万';
+            document.getElementById('detailOverdueTotal').innerHTML = '¥' + toWanFixed(overdueTotal) + '万';
+            
+            const chart = echarts.init(container);
+            chart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function(params) {
+                    let res = params[0].axisValue + '<br/>';
+                    let bookStack = 0, overdueStack = 0;
+                    params.forEach(p => {
+                        if (p.seriesName === '现汇账面' || p.seriesName === '承兑账面') bookStack += p.value;
+                        if (p.seriesName === '现汇逾期' || p.seriesName === '承兑逾期') overdueStack += p.value;
+                        res += `${p.marker} ${p.seriesName}: ${p.value.toFixed(2)} 万元<br/>`;
+                    });
+                    res += `<strong>账面合计: ${bookStack.toFixed(2)} 万元</strong><br/>`;
+                    res += `<strong>逾期合计: ${overdueStack.toFixed(2)} 万元</strong>`;
+                    return res;
+                } },
+                legend: { data: ['现汇账面','承兑账面','现汇逾期','承兑逾期'], top: 0 },
+                xAxis: { type: 'category', data: data.clients, axisLabel: { rotate: 25, fontSize: 9, interval: 0 } },
+                yAxis: { name: '万元' },
+                series: [
+                    { name: '现汇账面', type: 'bar', stack: 'book', data: data.spotBook.map(v=>v/10000), itemStyle: { color: '#3b82f6' }, label: { show: true, position: 'inside', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                    { name: '承兑账面', type: 'bar', stack: 'book', data: data.acceptBook.map(v=>v/10000), itemStyle: { color: '#10b981' }, label: { show: true, position: 'inside', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                    { name: '现汇逾期', type: 'bar', stack: 'overdue', data: data.spotOverdue.map(v=>v/10000), itemStyle: { color: '#ef4444' }, label: { show: true, position: 'inside', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } },
+                    { name: '承兑逾期', type: 'bar', stack: 'overdue', data: data.acceptOverdue.map(v=>v/10000), itemStyle: { color: '#f472b6' }, label: { show: true, position: 'inside', formatter: p => p.value > 0 ? p.value.toFixed(0) : '' } }
+                ]
+            });
+            activeDetailChart = chart;
+        }
+        
+        // 贴现利息 & 挂牌价 & 利率分析
+        function renderDiscountPanel(activeTab) {
+            const interestDiv = document.getElementById('panelInterestChart');
+            const priceDiv = document.getElementById('panelPriceChart');
+            const rateDiv = document.getElementById('panelRateChart');
+            if (!interestDiv || !priceDiv || !rateDiv) return;
+            interestDiv.style.display = 'none';
+            priceDiv.style.display = 'none';
+            rateDiv.style.display = 'none';
+            if (activeTab === 'interest') interestDiv.style.display = 'block';
+            if (activeTab === 'price') priceDiv.style.display = 'block';
+            if (activeTab === 'rate') rateDiv.style.display = 'block';
+            if (interestChart) interestChart.dispose();
+            if (priceChart) priceChart.dispose();
+            if (rateChart) rateChart.dispose();
+            if (activeTab === 'interest') {
+                // 按需求删除「贴现利息」图表：保留面板结构与 tab，仅不再渲染图表
+                interestDiv.innerHTML = '';
+            } else if (activeTab === 'price') {
+                priceChart = echarts.init(priceDiv);
+                const priceData = [
+                    { name: '银承', value: 1.30 },
+                    { name: '美易单', value: 2.80 },
+                    { name: '融单', value: 3.86 },
+                    { name: '金单', value: 7.20 },
+                    { name: '迪链', value: 2.98 }
+                ];
+                const priceColors = ['#3b82f6', '#10b981', '#f97316', '#8b5cf6', '#ec4899'];
+                priceChart.setOption({
+                    tooltip: {
+                        trigger: 'axis',
+                        formatter: function(params) {
+                            const title = params?.[0]?.axisValue ?? '';
+                            let res = title ? (title + '<br/>') : '';
+                            (params || []).forEach(p => {
+                                res += `${p.marker}${p.seriesName}: ${Number(p.value).toFixed(2)}%<br/>`;
+                            });
+                            return res;
+                        }
                     },
-                    { 
-                        name: '逾期金额', 
-                        type: 'bar', 
-                        data: sortedOverdueValues, 
-                        itemStyle: { color: '#ef4444' }, 
-                        label: { show: true, position: 'top', fontSize: 9 }
+                    grid: { left: '8%', right: '6%', bottom: '14%', top: '12%', containLabel: true },
+                    legend: { top: 0 },
+                    xAxis: { type: 'category', name: '月份', data: ['2月'] },
+                    yAxis: { type: 'value', name: '利率(%)', min: 0, max: 8 },
+                    series: priceData.map((d, idx) => ({
+                        name: d.name,
+                        type: 'line',
+                        data: [d.value],
+                        symbol: 'circle',
+                        symbolSize: 8,
+                        lineStyle: { width: 2, color: priceColors[idx % priceColors.length] },
+                        itemStyle: { color: priceColors[idx % priceColors.length] },
+                        label: { show: true, position: 'top', formatter: p => `${Number(p.value).toFixed(2)}%`, fontSize: 9 }
+                    }))
+                });
+            } else if (activeTab === 'rate') {
+                rateChart = echarts.init(rateDiv);
+                rateChart.setOption({
+                    tooltip: { 
+                        trigger: 'axis', 
+                        formatter: function(params) {
+                            let result = params[0].axisValue + '<br/>';
+                            params.forEach(function(item) {
+                                if (item.value > 0) {
+                                    result += item.marker + item.seriesName + ': ' + item.value + '%<br/>';
+                                }
+                            });
+                            return result;
+                        }
+                    },
+                    legend: { 
+                        data: ['银承', '美易单', '融单', '金单', '迪链', '商承'],
+                        top: 0
+                    },
+                    grid: { 
+                        left: '3%', 
+                        right: '4%', 
+                        bottom: '15%', 
+                        top: '15%', 
+                        containLabel: true 
+                    },
+                    xAxis: { 
+                        type: 'category', 
+                        data: rateAnalysisData.months, 
+                        axisLabel: { 
+                            rotate: 45, 
+                            fontSize: 9
+                        }
+                    },
+                    yAxis: { 
+                        type: 'value', 
+                        name: '%',
+                        min: 0,
+                        max: 4
+                    },
+                    series: [
+                        { 
+                            name: '银承', 
+                            type: 'line', 
+                            data: rateAnalysisData.银承, 
+                            smooth: true, 
+                            lineStyle: { width: 2 }, 
+                            symbol: 'circle', 
+                            symbolSize: 6,
+                            itemStyle: { color: '#3b82f6' },
+                            label: { 
+                                show: true, 
+                                position: 'top', 
+                                formatter: '{c}%',
+                                fontSize: 8,
+                                color: '#3b82f6'
+                            }
+                        },
+                        { 
+                            name: '美易单', 
+                            type: 'line', 
+                            data: rateAnalysisData.美易单, 
+                            smooth: true, 
+                            lineStyle: { width: 2 }, 
+                            symbol: 'circle', 
+                            symbolSize: 6,
+                            itemStyle: { color: '#10b981' },
+                            label: { 
+                                show: true, 
+                                position: 'top', 
+                                formatter: '{c}%',
+                                fontSize: 8,
+                                color: '#10b981'
+                            }
+                        },
+                        { 
+                            name: '融单', 
+                            type: 'line', 
+                            data: rateAnalysisData.融单, 
+                            smooth: true, 
+                            lineStyle: { width: 2 }, 
+                            symbol: 'circle', 
+                            symbolSize: 6,
+                            itemStyle: { color: '#f97316' },
+                            label: { 
+                                show: true, 
+                                position: 'top', 
+                                formatter: '{c}%',
+                                fontSize: 8,
+                                color: '#f97316'
+                            }
+                        },
+                        { 
+                            name: '金单', 
+                            type: 'line', 
+                            data: rateAnalysisData.金单, 
+                            smooth: true, 
+                            lineStyle: { width: 2 }, 
+                            symbol: 'circle', 
+                            symbolSize: 6,
+                            itemStyle: { color: '#8b5cf6' },
+                            label: { 
+                                show: true, 
+                                position: 'top', 
+                                formatter: '{c}%',
+                                fontSize: 8,
+                                color: '#8b5cf6'
+                            }
+                        },
+                        { 
+                            name: '迪链', 
+                            type: 'line', 
+                            data: rateAnalysisData.迪链, 
+                            smooth: true, 
+                            lineStyle: { width: 2 }, 
+                            symbol: 'circle', 
+                            symbolSize: 6,
+                            itemStyle: { color: '#ec4899' },
+                            label: { 
+                                show: true, 
+                                position: 'top', 
+                                formatter: '{c}%',
+                                fontSize: 8,
+                                color: '#ec4899'
+                            }
+                        },
+                        { 
+                            name: '商承', 
+                            type: 'line', 
+                            data: rateAnalysisData.商承, 
+                            smooth: true, 
+                            lineStyle: { width: 2 }, 
+                            symbol: 'circle', 
+                            symbolSize: 6,
+                            itemStyle: { color: '#64748b' },
+                            label: { 
+                                show: true, 
+                                position: 'top', 
+                                formatter: '{c}%',
+                                fontSize: 8,
+                                color: '#64748b'
+                            }
+                        }
+                    ]
+                });
+            }
+        }
+        
+        // 一级看板构建（只修改应收账款柱状图部分，其他卡片完全不变）
+        function buildLevel1() {
+            const container = document.getElementById('pieGridContainer');
+            container.innerHTML = '';
+            // 资金卡片 (不变)
+            const totalCashWan = dailyFundsRaw.现汇.reduce((a,b)=>a+b,0)/10000;
+            const totalBankWan = dailyFundsRaw.银承.reduce((a,b)=>a+b,0)/10000;
+            const totalMeiyiWan = dailyFundsRaw.美易单.reduce((a,b)=>a+b,0)/10000;
+            const fundCard = document.createElement('div'); fundCard.className = 'pie-card';
+            fundCard.innerHTML = `<div style="display:flex;justify-content:space-between"><h3><i class="fas fa-chart-simple"></i> 💰 每日资金余额 <span style="font-size:0.8rem;">¥ ${(totalCashWan+totalBankWan+totalMeiyiWan).toFixed(2)} 万</span></h3><div class="date-selector"><span class="status-dot"></span> ${todayStr()}</div></div><div id="pie_funds" class="pie-chart"></div>`;
+            fundCard.addEventListener('click', () => switchToLevel('funds'));
+            container.appendChild(fundCard);
+            const pieFund = echarts.init(document.getElementById('pie_funds'));
+            pieFund.setOption({ tooltip: { trigger: 'item' }, legend: { bottom: 0 }, series: [{ type: 'pie', radius: ['40%','70%'], data: [{ name:'现汇', value: totalCashWan },{ name:'银承', value: totalBankWan },{ name:'美易单', value: totalMeiyiWan }], label: { show: true, formatter: '{b}\n{c}万\n{d}%' } }] });
+            
+            // 应收账款柱状图（一级）—— 修改为两个柱子（应收、逾期），每个柱子内部分为现汇和承兑堆积
+            const mainCard = document.createElement('div'); mainCard.className = 'pie-card'; mainCard.style.gridColumn = 'span 2';
+            mainCard.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h3 style="margin:0;">📊 应收账款·现汇/承兑堆积(万元)</h3><div style="display:flex;gap:12px;"><div><div class="kpi-title" style="font-size:0.7rem;">账面应收</div><div class="kpi-value" style="font-size:1rem;">¥ ${(totalAllBook/10000).toFixed(2)} 万</div></div><div><div class="kpi-title" style="font-size:0.7rem;">逾期</div><div class="kpi-value" style="font-size:1rem; color:#ef4444;">¥ ${(totalAllOverdue/10000).toFixed(2)} 万</div></div><div class="date-selector"><span class="status-dot"></span> ${monthWeekStr()}</div></div></div><div id="bar_receivable" class="pie-chart"></div>`;
+            mainCard.addEventListener('click', () => switchToLevel('receivable'));
+            container.appendChild(mainCard);
+            const barChart = echarts.init(document.getElementById('bar_receivable'));
+            // 构建系列：应收组（现汇账面+承兑账面堆积），逾期组（现汇逾期+承兑逾期堆积）
+            // 为了展示两个分开的柱子，使用两个不同的 stack 组：'receivable' 和 'overdue'
+            const spotBookWan = spotBookData.map(v => v/10000);
+            const acceptBookWan = acceptBookData.map(v => v/10000);
+            const spotOverdueWan = spotOverdueData.map(v => v/10000);
+            const acceptOverdueWan = acceptOverdueData.map(v => v/10000);
+            barChart.setOption({
+                tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: function(params) {
+                    let res = params[0].axisValue + '<br/>';
+                    let receivableTotal = 0, overdueTotal = 0;
+                    params.forEach(p => {
+                        res += `${p.marker} ${p.seriesName}: ${p.value.toFixed(2)} 万元<br/>`;
+                        if (p.seriesName === '现汇应收' || p.seriesName === '承兑应收') receivableTotal += p.value;
+                        if (p.seriesName === '现汇逾期' || p.seriesName === '承兑逾期') overdueTotal += p.value;
+                    });
+                    res += `<strong>应收合计: ${receivableTotal.toFixed(2)} 万元</strong><br/>`;
+                    res += `<strong>逾期合计: ${overdueTotal.toFixed(2)} 万元</strong>`;
+                    return res;
+                } },
+                legend: { data: ['现汇应收', '承兑应收', '现汇逾期', '承兑逾期'], top: 0 },
+                xAxis: { type: 'category', data: companies },
+                yAxis: { name: '万元' },
+                series: [
+                    { name: '现汇应收', type: 'bar', stack: 'receivable', data: spotBookWan, itemStyle: { color: '#3b82f6' }, label: { show: true, position: 'inside', formatter: p => p.value > 0 ? p.value.toFixed(2) : '' } },
+                    { name: '承兑应收', type: 'bar', stack: 'receivable', data: acceptBookWan, itemStyle: { color: '#10b981' }, label: { show: true, position: 'inside', formatter: p => p.value > 0 ? p.value.toFixed(2) : '' } },
+                    { name: '现汇逾期', type: 'bar', stack: 'overdue', data: spotOverdueWan, itemStyle: { color: '#ef4444' }, label: { show: true, position: 'inside', formatter: p => p.value > 0 ? p.value.toFixed(2) : '' } },
+                    { name: '承兑逾期', type: 'bar', stack: 'overdue', data: acceptOverdueWan, itemStyle: { color: '#f472b6' }, label: { show: true, position: 'inside', formatter: p => p.value > 0 ? p.value.toFixed(2) : '' } }
+                ]
+            });
+            
+            // 利率折线图 (不变)
+            const rateCard = document.createElement('div'); rateCard.className = 'pie-card';
+            rateCard.innerHTML = `<h3><i class="fas fa-chart-line"></i> 📈 利率分析 (1-12月)</h3><div id="line_rate" class="pie-chart"></div>`;
+            rateCard.addEventListener('click', () => switchToLevel('finance'));
+            container.appendChild(rateCard);
+            const lineRate = echarts.init(document.getElementById('line_rate'));
+            // 与二级「贴现利息」相同的排序与柱数据（按贴现利息从高到低）
+            const sortedDiscountInterest = months.map((m, i) => ({ month: m, value: discountInterestWan[i] })).sort((a, b) => b.value - a.value);
+            const rateMonthlyForSortedX = sortedDiscountInterest.map(d => rateMonthly[months.indexOf(d.month)]);
+            lineRate.setOption({
+                tooltip: {
+                    trigger: 'axis',
+                    formatter: function(params) {
+                        let res = params[0].axisValue + '<br/>';
+                        params.forEach(function(p) {
+                            if (p.seriesName === '贴现利息') res += p.marker + '贴现利息: ' + Number(p.value).toFixed(2) + ' 万元<br/>';
+                            else res += p.marker + '利率: ' + p.value + '%<br/>';
+                        });
+                        return res;
+                    }
+                },
+                legend: { data: ['贴现利息', '利率'], bottom: 0 },
+                grid: { left: '3%', right: '8%', bottom: '12%', containLabel: true },
+                xAxis: { type: 'category', data: sortedDiscountInterest.map(d => d.month), axisLabel: { rotate: 30, fontSize: 8 } },
+                yAxis: [
+                    { type: 'value', name: '万元', position: 'left' },
+                    { type: 'value', name: '%', min: 0, max: 3, position: 'right' }
+                ],
+                series: [
+                    {
+                        name: '贴现利息',
+                        type: 'bar',
+                        yAxisIndex: 0,
+                        data: sortedDiscountInterest.map(d => d.value),
+                        itemStyle: { color: '#f97316', borderRadius: [6, 6, 0, 0] },
+                        label: { show: true, position: 'top', formatter: p => p.value.toFixed(2) }
+                    },
+                    {
+                        name: '利率',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: rateMonthlyForSortedX,
+                        smooth: true,
+                        lineStyle: { width: 2 },
+                        symbol: 'circle',
+                        symbolSize: 6,
+                        label: { show: true, position: 'top', formatter: '{c}%', fontSize: 8 }
                     }
                 ]
             });
-            document.getElementById('detailBookTotal').innerText = '¥' + toWanInt(totalBook).toLocaleString() + '万';
-            document.getElementById('detailOverdueTotal').innerText = '¥' + toWanInt(totalOverdue).toLocaleString() + '万';
-        } else if (tab === 'ferro') {
-            newChart.setOption({ tooltip: { trigger: 'axis' }, legend: { data: ['账面应收', '逾期金额'] }, xAxis: { type: 'category', data: ferroClients, axisLabel: { rotate: 20, fontSize: 10 } }, yAxis: { name: '万元' }, series: [{ name: '账面应收', type: 'bar', data: ferroBooks.map(v=>toWanInt(v)), itemStyle: { color: '#2f73ff' }, label: { show: true } },{ name: '逾期金额', type: 'bar', data: ferroOverdue.map(v=>toWanInt(v)), itemStyle: { color: '#ef4444' }, label: { show: true } }] });
-            document.getElementById('detailBookTotal').innerText = '¥' + toWanInt(totalFerroBook).toLocaleString() + '万';
-            document.getElementById('detailOverdueTotal').innerText = '¥' + toWanInt(totalFerroOverdue).toLocaleString() + '万';
-        } else if (tab === 'steel') {
-            newChart.setOption({ tooltip: { trigger: 'axis' }, legend: { data: ['账面应收', '逾期金额'] }, xAxis: { type: 'category', data: steelClients, axisLabel: { rotate: 20, fontSize: 10 } }, yAxis: { name: '万元' }, series: [{ name: '账面应收', type: 'bar', data: steelBooks.map(v=>toWanInt(v)), itemStyle: { color: '#2f73ff' }, label: { show: true } },{ name: '逾期金额', type: 'bar', data: steelOverdueList.map(v=>toWanInt(v)), itemStyle: { color: '#ef4444' }, label: { show: true } }] });
-            document.getElementById('detailBookTotal').innerText = '¥' + toWanInt(totalSteelBook).toLocaleString() + '万';
-            document.getElementById('detailOverdueTotal').innerText = '¥' + toWanInt(totalSteelOverdue).toLocaleString() + '万';
-        }
-        activeDetailChart = newChart;
-    }
-    
-    function buildLevel1() {
-        const container = document.getElementById('pieGridContainer');
-        if (!container) return;
-        const totalCash = sortedFunds.现汇.reduce((a,b)=>a+b,0);
-        const totalBank = sortedFunds.银承.reduce((a,b)=>a+b,0);
-        const totalMeiyi = sortedFunds.美易单.reduce((a,b)=>a+b,0);
-        const fundPieData = [{ name: '现汇', value: toWanInt(totalCash) }, { name: '银承', value: toWanInt(totalBank) }, { name: '美易单', value: toWanInt(totalMeiyi) }].filter(d=>d.value>0);
-        container.innerHTML = '';
-        // 资金饼图
-        const fundCard = document.createElement('div'); fundCard.className = 'pie-card';
-        const today = todayStr();
-        const totalFunds = fundPieData.reduce((sum, item) => sum + item.value, 0);
-        fundCard.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><h3><i class="fas fa-chart-simple"></i> 💰 每日资金余额 <span style="font-size:0.8rem; font-weight:600; color:#2f73ff;">¥ ${totalFunds.toLocaleString()} 万</span></h3><div class="date-selector"><span class="status-dot"></span> 日期: ${today}</div></div><div id="pie_fundsLevel1" class="pie-chart"></div>`;
-        container.appendChild(fundCard);
-        // 将整个卡片设置为超链接
-        fundCard.style.cursor = 'pointer';
-        fundCard.addEventListener('click', () => { switchToLevel('funds'); });
-        const fundChartDom = document.getElementById('pie_fundsLevel1');
-        if(fundChartDom){ const myChart = echarts.init(fundChartDom); myChart.setOption({ tooltip: { trigger: 'item', formatter: '{b}: {c}万元 ({d}%)' }, legend: { bottom: 0 }, series: [{ type: 'pie', radius: ['40%','70%'], data: fundPieData, label: { show: true, formatter: '{b}\n{c}万\n{d}%' } }] }); }
-        // 应收账款柱状图（按公司）
-        const mainCard = document.createElement('div'); mainCard.className = 'pie-card'; mainCard.style.gridColumn = 'span 2';
-        const mw = monthWeekStr();
-        const companies = ['丰驰', '昌泽', '耀通'];
-        const companyBookValues = [32004951.44, 6907769.92, 17110968.39];
-        const companyOverdueValues = [16468169.32, 3744243.62, 7941904.44];
-        // 加上铁合金和钢丸的金额
-        const totalBook = companyBookValues.reduce((sum, val) => sum + val, 0) + totalFerroBook + totalSteelBook;
-        const totalOverdue = companyOverdueValues.reduce((sum, val) => sum + val, 0) + totalFerroOverdue + totalSteelOverdue;
-        mainCard.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;"><h3 style="margin:0;">📊 应收账款·账面vs逾期(万元)</h3><div style="display:flex;gap:12px;"><div class="mini-kpi"><div class="kpi-title" style="font-size:0.7rem;">账面应收</div><div class="kpi-value" style="font-size:1rem;">¥ ${toWanInt(totalBook).toLocaleString()} 万</div></div><div class="mini-kpi"><div class="kpi-title" style="font-size:0.7rem;">逾期</div><div class="kpi-value" style="font-size:1rem; color:#ef4444;">¥ ${toWanInt(totalOverdue).toLocaleString()} 万</div></div><div class="date-selector"><span class="status-dot"></span> ${mw}</div></div></div><div id="bar_merged_receivable" class="pie-chart"></div>`;
-        container.appendChild(mainCard);
-        // 将整个卡片设置为超链接
-        mainCard.style.cursor = 'pointer';
-        mainCard.addEventListener('click', () => { switchToLevel('receivable'); });
-        const barChartDom = document.getElementById('bar_merged_receivable');
-        if(barChartDom){
-            const barChart = echarts.init(barChartDom);
-            barChart.setOption({ tooltip: { trigger: 'axis' }, legend: { data: ['账面应收','逾期金额'] }, xAxis: { type: 'category', data: companies, axisLabel: { fontSize: 10 } }, yAxis: { name: '万元' }, series: [{ name: '账面应收', type: 'bar', data: companyBookValues.map(v=>toWanInt(v)), itemStyle: { color: '#2f73ff' }, label: { show: true, position: 'top', fontSize: 9 } },{ name: '逾期金额', type: 'bar', data: companyOverdueValues.map(v=>toWanInt(v)), itemStyle: { color: '#ef4444' }, label: { show: true, position: 'top', fontSize: 9 } }] });
-            window.mergedBarChart = barChart;
-        }
-        // 综合利率折线图（点击跳转到二级新卡片）
-        const rateCard = document.createElement('div'); rateCard.className = 'pie-card';
-        rateCard.innerHTML = `<h3><i class="fas fa-chart-line"></i> 📈 利率分析 (1-12月)</h3><div id="line_rateLevel1" class="pie-chart"></div>`;
-        container.appendChild(rateCard);
-        // 将整个卡片设置为超链接
-        rateCard.style.cursor = 'pointer';
-        rateCard.addEventListener('click', () => { switchToLevel('finance'); });
-        const rateChartDom = document.getElementById('line_rateLevel1');
-        if(rateChartDom){
-            const rateChart = echarts.init(rateChartDom);
-            // 使用截图中的利率数据
-            const months = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-            const rateData = [2.16, 1.23, 1.97, 1.59, 1.38, 1.45, 1.67, 1.36, 1.32, 1.32, 1.25, 2.24, 1.90, 1.18];
-            
-            rateChart.setOption({ 
-                tooltip: { 
-                    trigger: 'axis', 
-                    axisPointer: { type: 'cross' },
-                    formatter: function(params) {
-                        let result = params[0].name + '<br/>';
-                        params.forEach(function(item) {
-                            result += item.marker + item.seriesName + ': ' + item.value + '%<br/>';
-                        });
-                        return result;
-                    }
-                }, 
-                xAxis: { 
-                    type: 'category', 
-                    data: months,
-                    axisLabel: { 
-                        rotate: 45, 
-                        fontSize: 8,
-                        interval: 0
-                    }
-                },
-                yAxis: { 
-                    type: 'value', 
-                    name: '%', 
-                    nameTextStyle: { fontSize: 9 },
-                    min: 0,
-                    max: 3
-                },
-                series: [{ 
-                    name: '利率',
-                    type: 'line', 
-                    data: rateData.slice(0, 12), 
-                    smooth: true,
-                    itemStyle: { color: '#2f73ff' },
-                    lineStyle: { width: 2 },
-                    symbol: 'circle',
-                    symbolSize: 6,
-                    label: { 
-                        show: true, 
-                        position: 'top', 
-                        formatter: '{c}%', 
-                        fontSize: 8,
-                        color: '#0f172a'
-                    }
-                }],
-                grid: { 
-                    top: 40, 
-                    left: 60, 
-                    right: 30, 
-                    bottom: 60
-                }
-            });
-        }
-        // 付款计划饼图
-        const planCompanyData = paymentPlanWithTotals.map(d => ({ name: d.company, value: d.totalAmount }));
-        const totalPlanAmount = planCompanyData.reduce((sum, item) => sum + item.value, 0);
-        const planCard = document.createElement('div'); planCard.className = 'pie-card';
-        planCard.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center"><h3><i class="fas fa-calendar-day"></i> 📅 每日付款计划 <span style="font-size:0.8rem; font-weight:600; color:#2f73ff;">¥ ${totalPlanAmount.toLocaleString()} 万</span></h3><div class="date-selector"><span class="status-dot"></span> 日期: ${today}</div></div><div id="pie_planLevel1" class="pie-chart"></div>`;
-        container.appendChild(planCard);
-        // 将整个卡片设置为超链接
-        planCard.style.cursor = 'pointer';
-        planCard.addEventListener('click', () => { switchToLevel('plan'); });
-        const planChartDomL1 = document.getElementById('pie_planLevel1');
-        if(planChartDomL1){ const myChart = echarts.init(planChartDomL1); myChart.setOption({ tooltip: { trigger: 'item', formatter: '{b}: {c}万元 ({d}%)' }, legend: { bottom: 0 }, series: [{ type: 'pie', radius: '65%', data: planCompanyData, label: { show: true, formatter: '{b}\n{c}万\n{d}%' } }] }); }
-        // 月度回款结构折线图
-        const payCard = document.createElement('div'); payCard.className = 'pie-card';
-        payCard.innerHTML = `<h3><i class="fas fa-hand-holding-dollar"></i> 💵 月度回款结构 (比率%)</h3><div id="line_payLevel1" class="pie-chart"></div>`;
-        container.appendChild(payCard);
-        const payChartDomL1 = document.getElementById('line_payLevel1');
-        if(payChartDomL1){
-            const myChart = echarts.init(payChartDomL1);
-            // 使用截图中的实际比率数据
-            const months = ['1月', '2月', '3月'];
-            const cashData = [18, 24, 35.9];
-            const commercialAcceptData = [16, 0, 16.6];
-            const bankAcceptData = [66, 76, 47.5];
-            
-            myChart.setOption({
-                tooltip: { 
-                    trigger: 'axis', 
-                    axisPointer: { type: 'cross' },
-                    formatter: function(params) {
-                        let result = params[0].name + '<br/>';
-                        params.forEach(function(item) {
-                            result += item.marker + item.seriesName + ': ' + item.value + '%<br/>';
-                        });
-                        return result;
-                    }
-                },
-                legend: { bottom: 0, data: ['现汇', '商业承兑', '银行承兑'] },
-                xAxis: { type: 'category', data: months, axisLabel: { fontSize: 10 } },
-                yAxis: { type: 'value', name: '%', nameTextStyle: { fontSize: 9 }, min: 0, max: 100 },
+            // 付款计划饼图 (不变)
+            const planTotal = paymentPlanWithTotals.reduce((s,i)=>s+i.totalAmount,0);
+            const planCardDom = document.createElement('div'); planCardDom.className = 'pie-card';
+            planCardDom.innerHTML = `<div style="display:flex;justify-content:space-between"><h3><i class="fas fa-calendar-day"></i> 📅 每日付款计划 <span style="font-size:0.8rem;">¥ ${planTotal.toFixed(2)} 万</span></h3><div class="date-selector"><span class="status-dot"></span> ${todayStr()}</div></div><div id="pie_plan" class="pie-chart"></div>`;
+            planCardDom.addEventListener('click', () => switchToLevel('plan'));
+            container.appendChild(planCardDom);
+            const piePlan = echarts.init(document.getElementById('pie_plan'));
+            piePlan.setOption({ tooltip: { trigger: 'item', formatter: '{b}: {c}万元 ({d}%)' }, legend: { bottom: 0 }, series: [{ type: 'pie', radius: '65%', data: paymentPlanWithTotals.map(d=>({name:d.company, value:d.totalAmount})), label: { show: true, formatter: '{b}\n{c}万\n{d}%' } }] });
+            // 回款结构折线图 (不变)
+            const payCard = document.createElement('div'); payCard.className = 'pie-card';
+            payCard.innerHTML = `<h3><i class="fas fa-hand-holding-dollar"></i> 💵 月度回款结构 (比率%)</h3><div id="line_pay" class="pie-chart"></div>`;
+            container.appendChild(payCard);
+            const linePay = echarts.init(document.getElementById('line_pay'));
+            linePay.setOption({
+                tooltip: { trigger: 'axis' }, legend: { bottom: 0, data: ['现汇','商业承兑','银行承兑'] },
+                xAxis: { type: 'category', data: ['1月','2月','3月'] }, yAxis: { name: '%', min: 0, max: 100 },
                 series: [
-                    { name: '现汇', type: 'line', data: cashData, itemStyle: { color: '#3b82f6' }, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6, label: { show: true, position: 'top', formatter: '{c}%', fontSize: 8 } },
-                    { name: '商业承兑', type: 'line', data: commercialAcceptData, itemStyle: { color: '#10b981' }, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6, label: { show: true, position: 'top', formatter: '{c}%', fontSize: 8 } },
-                    { name: '银行承兑', type: 'line', data: bankAcceptData, itemStyle: { color: '#f59e0b' }, lineStyle: { width: 2 }, symbol: 'circle', symbolSize: 6, label: { show: true, position: 'top', formatter: '{c}%', fontSize: 8 } }
-                ],
-                grid: { top: 40, left: 50, right: 20, bottom: 40 }
+                    { name: '现汇', type: 'line', data: [18,24,35.9], label: { show: true, formatter: '{c}%' } },
+                    { name: '商业承兑', type: 'line', data: [16,0,16.6], label: { show: true } },
+                    { name: '银行承兑', type: 'line', data: [66,76,47.5], label: { show: true } }
+                ]
             });
         }
-    }
-    
-    function switchToLevel(level) {
-        document.getElementById('pagePie').classList.add('hidden');
-        document.getElementById('pageChart').classList.add('hidden');
-        if (level === 'pie') document.getElementById('pagePie').classList.remove('hidden');
-        if (['funds', 'receivable', 'plan', 'finance'].includes(level)) {
+        
+        // 页面切换
+        function switchToLevel(level) {
+            document.getElementById('pagePie').classList.add('hidden');
+            document.getElementById('pageChart').classList.add('hidden');
+            if (level === 'pie') {
+                document.getElementById('pagePie').classList.remove('hidden');
+                return;
+            }
             document.getElementById('pageChart').classList.remove('hidden');
-            setTimeout(() => {
-                showSecondSection(level);
-            }, 100);
+            const cards = ['fundsCard','receivableCard','planCard','discountCard'];
+            cards.forEach(id => { const el = document.getElementById(id); if(el) el.style.display = 'none'; });
+            if (level === 'funds') { document.getElementById('fundsCard').style.display = 'flex'; renderSecondaryStatic(); if(fundChart) fundChart.resize(); }
+            if (level === 'receivable') { document.getElementById('receivableCard').style.display = 'flex'; renderReceivableDetail('fengchi'); if(activeDetailChart) activeDetailChart.resize(); }
+            if (level === 'plan') { document.getElementById('planCard').style.display = 'flex'; renderSecondaryStatic(); if(planChart) planChart.resize(); }
+            if (level === 'finance') { document.getElementById('discountCard').style.display = 'flex'; renderDiscountPanel('price'); if(interestChart) interestChart.resize(); if(priceChart) priceChart.resize(); if(rateChart) rateChart.resize(); }
         }
-    }
-    
-    function showSecondSection(section) {
-        const fundsCard = document.getElementById('fundsCard');
-        const receivableCard = document.getElementById('receivableCard');
-        const planCard = document.getElementById('planCard');
-        const discountCard = document.getElementById('discountCard');
         
-        // 全部隐藏
-        if (fundsCard) fundsCard.style.display = 'none';
-        if (receivableCard) receivableCard.style.display = 'none';
-        if (planCard) planCard.style.display = 'none';
-        if (discountCard) discountCard.style.display = 'none';
-        
-        // 仅显示目标板块并触发重绘
-        if (section === 'funds' && fundsCard) {
-            fundsCard.style.display = 'flex';
-            renderSecondLevelOthers();
-            if (fundChart) fundChart.resize();
-        } else if (section === 'receivable' && receivableCard) {
-            receivableCard.style.display = 'flex';
-            renderDetailChart('fengchi');
-            if (activeDetailChart) activeDetailChart.resize();
-        } else if (section === 'plan' && planCard) {
-            planCard.style.display = 'flex';
-            renderSecondLevelOthers();
-            if (planChart) planChart.resize();
-        } else if (section === 'finance' && discountCard) {
-            discountCard.style.display = 'flex';
-            renderDiscountPanel(currentActiveTab);
-            if (currentActiveTab === 'amount' && amountChartInst) amountChartInst.resize();
-            if (currentActiveTab === 'interest' && interestChartInst) interestChartInst.resize();
-            if (currentActiveTab === 'price' && priceChartInst) priceChartInst.resize();
-        }
-    }
-    
-    function initApp() {
-        buildLevel1();
-        renderSecondLevelOthers();
-        renderDetailChart('fengchi');
-        bindTripleTabs();
-        renderDiscountPanel('interest');
-        document.querySelectorAll('.mini-tab-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => { 
-                const tab = btn.dataset.tab; 
-                if(tab) {
-                    // 切换按钮颜色状态
+        // 事件绑定
+        function bindEvents() {
+            document.getElementById('backToLevel1Btn').addEventListener('click', () => switchToLevel('pie'));
+            document.querySelectorAll('.triple-tab').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const tabKey = btn.getAttribute('data-discount-tab');
+                    if (!tabKey) return;
+                    document.querySelectorAll('.triple-tab').forEach(t => t.classList.remove('active'));
+                    btn.classList.add('active');
+                    renderDiscountPanel(tabKey);
+                    setTimeout(() => { 
+                        if(tabKey==='interest' && interestChart) interestChart.resize(); 
+                        if(tabKey==='price' && priceChart) priceChart.resize();
+                        if(tabKey==='rate' && rateChart) rateChart.resize();
+                    }, 100);
+                });
+            });
+            document.querySelectorAll('.mini-tab-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const tab = btn.getAttribute('data-tab');
+                    if (!tab) return;
                     document.querySelectorAll('.mini-tab-btn').forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-                    renderDetailChart(tab); 
-                }
+                    renderReceivableDetail(tab);
+                    if(activeDetailChart) activeDetailChart.resize();
+                });
             });
-        });
-        document.getElementById('backToLevel1Btn').addEventListener('click', () => switchToLevel('pie'));
+        }
+        
+        // 初始化
+        buildLevel1();
+        renderSecondaryStatic();
+        renderReceivableDetail('fengchi');
+        renderDiscountPanel('price');
+        bindEvents();
         switchToLevel('pie');
         window.addEventListener('resize', () => {
-            if(window.mergedBarChart) window.mergedBarChart.resize();
-            if(fundChart) fundChart.resize(); if(planChart) planChart.resize();
+            if(window.mergedBarChart) window.mergedBarChart?.resize();
+            if(fundChart) fundChart.resize();
+            if(planChart) planChart.resize();
             if(activeDetailChart) activeDetailChart.resize();
-            if(interestChartInst) interestChartInst.resize(); 
-            if(priceChartInst) priceChartInst.resize();
-            
-            // 确保一级面板中由 buildLevel1 创建的图表也响应 resize
-            const l1Funds = document.getElementById('pie_fundsLevel1');
-            if(l1Funds && echarts.getInstanceByDom(l1Funds)) echarts.getInstanceByDom(l1Funds).resize();
-            const l1Rate = document.getElementById('pie_rateLevel1');
-            if(l1Rate && echarts.getInstanceByDom(l1Rate)) echarts.getInstanceByDom(l1Rate).resize();
-            const l1Plan = document.getElementById('pie_planLevel1');
-            if(l1Plan && echarts.getInstanceByDom(l1Plan)) echarts.getInstanceByDom(l1Plan).resize();
-            const l1Pay = document.getElementById('pie_payLevel1');
-            if(l1Pay && echarts.getInstanceByDom(l1Pay)) echarts.getInstanceByDom(l1Pay).resize();
+            if(interestChart) interestChart.resize();
+            if(priceChart) priceChart.resize();
         });
-    }
-    if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initApp);
-    else initApp();
+    })();
 </script>
 </body>
 </html>

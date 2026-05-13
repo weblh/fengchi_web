@@ -21,31 +21,36 @@ const LinkageDashboard: React.FC = () => {
   const location = useLocation();
   const [currentPage, setCurrentPage] = useState<'summary' | 'details'>('summary');
   const [selectedTab, setSelectedTab] = useState('jar_material');
-  // 计算默认开始时间（上个月的23号）
+  // 计算默认开始时间和结束时间
   const getDefaultStartDate = () => {
     const date = new Date();
-    date.setMonth(date.getMonth() - 1);
-    date.setDate(23);
+    const currentDay = date.getDate();
+    if (currentDay >= 23) {
+      date.setDate(23);
+    } else {
+      date.setMonth(date.getMonth() - 1);
+      date.setDate(23);
+    }
     return date.toISOString().slice(0, 10);
   };
   
-  // 计算默认结束时间（今天）
   const getDefaultEndDate = () => {
     const date = new Date();
+    const currentDay = date.getDate();
+    if (currentDay >= 23) {
+      date.setMonth(date.getMonth() + 1);
+      date.setDate(22);
+    } else {
+      date.setDate(22);
+    }
     return date.toISOString().slice(0, 10);
   };
   
-  const [startDate, setStartDate] = useState(getDefaultStartDate());
-  const [endDate, setEndDate] = useState(getDefaultEndDate());
-  const [materialDicts, setMaterialDicts] = useState<any[]>([]);
-  const [priceCombinations, setPriceCombinations] = useState<any[]>([]);
-
-  // 共享数据结构
-  const STORAGE_KEY = 'steel_price_data_v1';
   // 生成日期列表（从2022年1月1日到今天）
   const dateList: string[] = [];
   const start = new Date(2022, 0, 1); // 2022年1月1日
   const end = new Date(); // 今天
+  end.setDate(end.getDate() + 31); // 增加一个月的缓冲，确保能包含未来的日期
   let cur = new Date(start);
   while (cur <= end) {
     const y = cur.getFullYear();
@@ -55,10 +60,33 @@ const LinkageDashboard: React.FC = () => {
     cur.setDate(cur.getDate() + 1);
   }
   
-  // 初始化缺失的变量
-  const punchData: any[] = [];
-  const siMnData: any[] = [];
-  const siFeData: any[] = [];
+  const [startDate, setStartDate] = useState(getDefaultStartDate());
+  const [endDate, setEndDate] = useState(getDefaultEndDate());
+  const [materialDicts, setMaterialDicts] = useState<any[]>([]);
+  const [priceCombinations, setPriceCombinations] = useState<any[]>([]);
+  
+  // 计算当前月份的日期范围
+  const getCurrentMonthRange = () => {
+    const date = new Date();
+    const currentDay = date.getDate();
+    let startDate, endDate;
+    
+    if (currentDay >= 23) {
+      startDate = new Date(date.getFullYear(), date.getMonth(), 23);
+      endDate = new Date(date.getFullYear(), date.getMonth() + 1, 22);
+    } else {
+      startDate = new Date(date.getFullYear(), date.getMonth() - 1, 23);
+      endDate = new Date(date.getFullYear(), date.getMonth(), 22);
+    }
+    
+    const formatDate = (d: Date) => {
+      return `${d.getMonth() + 1}.${d.getDate()}`;
+    };
+    
+    return `${formatDate(startDate)}~${formatDate(endDate)}`;
+  };
+  
+  const currentMonthRange = getCurrentMonthRange();
 
   // 辅助函数：根据日期获取记录，如果当天没有则获取上一天的
   function getRecordByDate(records: any[]) {
@@ -235,18 +263,31 @@ const LinkageDashboard: React.FC = () => {
   // 计算汇总数据
   async function updateSummary() {
     try {
-      // 计算上个月23号到这个月22号的日期范围
+      // 格式化日期为 YYYY-MM-DD 格式（使用本地时间）
+      const formatDate = (date: Date) => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+      
+      // 计算日期范围：如果当前日期 >= 23号，开始日期为本月23号，结束日期为下月22号；否则开始日期为上月23号，结束日期为本月22号
       const today = new Date();
+      const currentDay = today.getDate();
       const currentMonth = today.getMonth();
       const currentYear = today.getFullYear();
       
-      // 上个月23号
-      const lastMonthStart = new Date(currentYear, currentMonth - 1, 23);
-      // 这个月22号
-      const currentMonthEnd = new Date(currentYear, currentMonth, 22);
+      let startDate, endDate;
       
-      const startDate = lastMonthStart.toISOString().slice(0, 10);
-      const endDate = currentMonthEnd.toISOString().slice(0, 10);
+      if (currentDay >= 23) {
+        // 如果今天 >= 23号，开始日期为本月23号，结束日期为下月22号
+        startDate = formatDate(new Date(currentYear, currentMonth, 23));
+        endDate = formatDate(new Date(currentYear, currentMonth + 1, 22));
+      } else {
+        // 如果今天 < 23号，开始日期为上月23号，结束日期为本月22号
+        startDate = formatDate(new Date(currentYear, currentMonth - 1, 23));
+        endDate = formatDate(new Date(currentYear, currentMonth, 22));
+      }
       
       console.log('计算日期范围:', { startDate, endDate });
       
@@ -309,27 +350,27 @@ const LinkageDashboard: React.FC = () => {
         if (latestRecord !== null && latestRecord !== undefined) {
           switch (code) {
             case 'jar_material':
-              gunLatest = latestRecord.avgPrice || 0;
+              gunLatest = latestRecord.linkedPrice || 0;
               gunAvg = linkedPriceAvg;
               break;
             case 'gray_iron_cast':
-              huiLatest = latestRecord.avgPrice || 0;
+              huiLatest = latestRecord.linkedPrice || 0;
               huiAvg = linkedPriceAvg;
               break;
             case 'rust_removal_2':
-              chuLatest = latestRecord.avgPrice || 0;
+              chuLatest = latestRecord.linkedPrice || 0;
               chuAvg = linkedPriceAvg;
               break;
             case 'punching_scrap':
-              gbLatest = latestRecord.avgPrice || 0;
+              gbLatest = latestRecord.linkedPrice || 0;
               gbAvg = linkedPriceAvg;
               break;
             case 'ferrosilicon':
-              gtLatest = latestRecord.avgPrice || 0;
+              gtLatest = latestRecord.linkedPrice || 0;
               gtAvg = linkedPriceAvg;
               break;
             case 'silicon_manganese':
-              gmLatest = latestRecord.avgPrice || 0;
+              gmLatest = latestRecord.linkedPrice || 0;
               gmAvg = linkedPriceAvg;
               break;
           }
@@ -453,7 +494,7 @@ const LinkageDashboard: React.FC = () => {
     
     // 1. 导出汇总表
     const summaryRows = [
-      ['料型', '当日价格（最新日）', '当月联动均价（3.23~4.22）'],
+      ['料型', '当日价格（最新日）', `当月联动均价（${currentMonthRange}）`],
       ['罐子料（加工）', Math.round(summaryData.gunLatest), summaryData.gunAvg],
       ['灰铁废铸件（普通）', Math.round(summaryData.huiLatest), summaryData.huiAvg],
       ['除锈二级', Math.round(summaryData.chuLatest), summaryData.chuAvg],
@@ -627,7 +668,7 @@ const LinkageDashboard: React.FC = () => {
           }
         },
         legend: {
-          data: [category.categoryName || category.name || '物料' + '含税联动价', '含税均价'],
+          data: [category.categoryName || category.name || '含税联动价', '均价线'],
           top: 30
         },
         xAxis: {
@@ -636,19 +677,14 @@ const LinkageDashboard: React.FC = () => {
         },
         yAxis: {
           type: 'value',
-          name: '价格 (元/吨)'
+          name: '含税联动价 (元/吨)'
         },
         series: [
           {
-            name: category.categoryName || category.name || '物料' + '含税联动价',
+            name: category.categoryName || category.name || '含税联动价',
             type: 'line',
             data: []
           },
-          {
-            name: '含税均价',
-            type: 'line',
-            data: []
-          }
         ]
       };
     }
@@ -661,9 +697,30 @@ const LinkageDashboard: React.FC = () => {
     let labels = sortedData.map(r => r.date.slice(5)); // 只显示月-日
     let linkedPrices = sortedData.map(r => r.linkedPrice || 0);
     
-    // 计算均价（与calculateAverageLinkedPrice函数逻辑一致）
+    // 计算均价（用于显示均价线）
     const validData = sortedData.filter(item => item.linkedPrice !== undefined && item.linkedPrice !== null && item.linkedPrice !== '');
     const linkedPriceAvg = validData.length > 0 ? validData.reduce((sum, item) => sum + (item.linkedPrice || 0), 0) / validData.length : 0;
+    
+    // 计算 Y 轴范围
+    let yMin = 0;
+    let yMax = 0;
+    if (validData.length > 0) {
+      const prices = validData.map(item => item.linkedPrice || 0);
+      const minPrice = Math.min(...prices);
+      const maxPrice = Math.max(...prices);
+      // 计算合适的 Y 轴范围，使数据波动更加明显
+      const range = maxPrice - minPrice;
+      const padding = range * 0.2; // 20% 的 padding
+      // 调整到整百的数值
+      yMin = Math.floor((minPrice - padding) / 100) * 100;
+      yMax = Math.ceil((maxPrice + padding) / 100) * 100;
+      // 确保最小值不会太小，至少为均价的 80%
+      const avgBasedMin = Math.floor((linkedPriceAvg * 0.8) / 100) * 100;
+      yMin = Math.max(yMin, avgBasedMin);
+      // 确保最大值不会太大，至少为均价的 120%
+      const avgBasedMax = Math.ceil((linkedPriceAvg * 1.2) / 100) * 100;
+      yMax = Math.max(yMax, avgBasedMax);
+    }
     
     // 配置选项
     return {
@@ -681,14 +738,14 @@ const LinkageDashboard: React.FC = () => {
         }
       },
       legend: {
-        data: [category.categoryName || category.name || '物料' + '含税联动价', '均价线'],
+        data: [category.categoryName || category.name || '含税联动价', '均价线'],
         top: 30
       },
       toolbox: {
         show: true,
         feature: {
           dataZoom: {
-            yAxisIndex: 'none'
+            yAxisIndex: 0
           },
           dataView: { readOnly: false },
           magicType: { type: ['line', 'bar'] },
@@ -696,10 +753,20 @@ const LinkageDashboard: React.FC = () => {
           saveAsImage: {}
         }
       },
+      dataZoom: [
+        {
+          type: 'slider',
+          yAxisIndex: 0,
+          start: 0,
+          end: 40,
+          height: 20,
+          bottom: 0
+        }
+      ],
       grid: {
         left: '3%',
         right: '4%',
-        bottom: '15%',
+        bottom: '20%',
         containLabel: true
       },
       xAxis: {
@@ -712,21 +779,28 @@ const LinkageDashboard: React.FC = () => {
       },
       yAxis: {
         type: 'value',
-        name: '价格 (元/吨)'
+        name: '含税联动价 (元/吨)',
+        min: yMin,
+        max: yMax,
+        interval: 100,
+        axisLabel: {
+          formatter: '{value}'
+        }
       },
       series: [
         {
-            name: category.categoryName || category.name || '物料' + '含税联动价',
+            name: category.categoryName || category.name || '含税联动价',
             type: 'line',
             data: linkedPrices,
             smooth: true,
             symbol: 'circle',
-            symbolSize: 8,
+            symbolSize: 10,
             itemStyle: {
               color: '#1890ff'
             },
             lineStyle: {
-              width: 3
+              width: 4,
+              color: '#1890ff'
             },
             areaStyle: {
               color: {
@@ -736,21 +810,36 @@ const LinkageDashboard: React.FC = () => {
                 x2: 0,
                 y2: 1,
                 colorStops: [{
-                  offset: 0, color: 'rgba(24, 144, 255, 0.5)'
+                  offset: 0, color: 'rgba(24, 144, 255, 0.7)'
                 }, {
-                  offset: 1, color: 'rgba(24, 144, 255, 0.1)'
+                  offset: 1, color: 'rgba(24, 144, 255, 0.2)'
                 }]
               }
             },
+            label: {
+              show: true,
+              position: 'top',
+              formatter: function(params: any) {
+                return Math.round(params.value);
+              },
+              fontSize: 12,
+              fontWeight: 'bold',
+              color: '#000000'
+            },
             markPoint: {
               data: [
-                { type: 'max', name: '最大值' },
-                { type: 'min', name: '最小值' }
-              ]
+                { type: 'max', name: '最大值', itemStyle: { color: '#ff4d4f' } },
+                { type: 'min', name: '最小值', itemStyle: { color: '#52c41a' } }
+              ],
+              symbolSize: 60,
+              label: {
+                fontSize: 14,
+                fontWeight: 'bold'
+              }
             }
           },
         {
-            name: '含税均价',
+            name: '均价线',
             type: 'line',
             data: new Array(linkedPrices.length).fill(linkedPriceAvg),
             symbol: 'none',
@@ -976,7 +1065,24 @@ const LinkageDashboard: React.FC = () => {
   async function fetchMaterialDicts() {
     try {
       const response = await request.get('/api/material-dicts/tree');
-      const dictData = Array.isArray(response) ? response : [];
+      let dictData = Array.isArray(response) ? response : [];
+      
+      // 按照指定顺序排序：罐子料、冲子料、除锈二级、灰铁废铸件、硅铁、内蒙硅锰
+      const sortOrder = [
+        'jar_material',      // 罐子料
+        'punching_scrap',    // 冲子料
+        'rust_removal_2',    // 除锈二级
+        'gray_iron_cast',    // 灰铁废铸件
+        'ferrosilicon',      // 硅铁
+        'silicon_manganese'  // 内蒙硅锰
+      ];
+      
+      dictData.sort((a, b) => {
+        const aIndex = sortOrder.indexOf(a.categoryCode || a.code);
+        const bIndex = sortOrder.indexOf(b.categoryCode || b.code);
+        return aIndex - bIndex;
+      });
+      
       setMaterialDicts(dictData);
       // 默认选中第一个选项卡
       if (dictData.length > 0) {
@@ -1029,7 +1135,7 @@ const LinkageDashboard: React.FC = () => {
             <div className="sub">
               含税参考价（元/吨）
               <br />
-              当月联动均价（3.23~4.22）
+              当月联动均价（{currentMonthRange}）
               <br />
               当日价格（最新日）
             </div>
@@ -1042,12 +1148,12 @@ const LinkageDashboard: React.FC = () => {
                 <tr><th>料型</th><th>当日价格</th><th>当月联动均价</th></tr>
               </thead>
               <tbody>
-                <tr><td>罐子料</td><td className="price-value">{Math.round(summaryData.gunLatest)}</td><td>{summaryData.gunAvg}</td></tr>
-                <tr><td>灰铁废铸件</td><td className="price-value">{Math.round(summaryData.huiLatest)}</td><td>{summaryData.huiAvg}</td></tr>
-                <tr><td>除锈二级</td><td className="price-value">{Math.round(summaryData.chuLatest)}</td><td>{summaryData.chuAvg}</td></tr>
-                <tr><td>冲子料</td><td className="price-value">{Math.round(summaryData.gbLatest)}</td><td>{summaryData.gbAvg}</td></tr>
-                <tr><td>硅锰合金</td><td className="price-value">{Math.round(summaryData.gmLatest)}</td><td>{summaryData.gmAvg}</td></tr>
-                <tr><td>硅铁</td><td className="price-value">{Math.round(summaryData.gtLatest)}</td><td>{summaryData.gtAvg}</td></tr>
+                <tr><td>罐子料</td><td className="price-value">{summaryData.gunLatest.toFixed(2)}</td><td>{summaryData.gunAvg.toFixed(2)}</td></tr>
+                <tr><td>灰铁废铸件</td><td className="price-value">{summaryData.huiLatest.toFixed(2)}</td><td>{summaryData.huiAvg.toFixed(2)}</td></tr>
+                <tr><td>除锈二级</td><td className="price-value">{summaryData.chuLatest.toFixed(2)}</td><td>{summaryData.chuAvg.toFixed(2)}</td></tr>
+                <tr><td>冲子料</td><td className="price-value">{summaryData.gbLatest.toFixed(2)}</td><td>{summaryData.gbAvg.toFixed(2)}</td></tr>
+                <tr><td>硅锰合金</td><td className="price-value">{summaryData.gmLatest.toFixed(2)}</td><td>{summaryData.gmAvg.toFixed(2)}</td></tr>
+                <tr><td>硅铁</td><td className="price-value">{summaryData.gtLatest.toFixed(2)}</td><td>{summaryData.gtAvg.toFixed(2)}</td></tr>
               </tbody>
             </table>
 
@@ -1132,6 +1238,14 @@ const LinkageDashboard: React.FC = () => {
                         </div>
                       </Card>
                       <Card className="mb-4">
+                        <div className="stat-row">
+                          <Space size="large">
+                            <div className="avg-stat">📊 含税均价：<span>{calculateAverageLinkedPrice()}</span> 元/吨</div>
+                            <div className="latest-stat">📌 最新含税价：<span>{getLatestLinkedPrice()}</span> 元/吨</div>
+                          </Space>
+                        </div>
+                      </Card>
+                      <Card className="mb-4">
                         <div className="table-wrapper">
                           <table className="data-table">
                             <thead>
@@ -1147,14 +1261,6 @@ const LinkageDashboard: React.FC = () => {
                               {renderTableData()}
                             </tbody>
                           </table>
-                        </div>
-                      </Card>
-                      <Card>
-                        <div className="stat-row">
-                          <Space size="large">
-                            <div className="avg-stat">📊 含税均价：<span>{calculateAverageLinkedPrice()}</span> 元/吨</div>
-                            <div className="latest-stat">📌 最新含税价：<span>{getLatestLinkedPrice()}</span> 元/吨</div>
-                          </Space>
                         </div>
                       </Card>
                     </div>

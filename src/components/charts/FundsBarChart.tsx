@@ -6,16 +6,22 @@ interface FundsBarChartProps {
   xianhui: number[];
   yincheng: number[];
   meiyi: number[];
+  rongdan?: number[];
+  jindan?: number[];
+  dilian?: number[];
 }
 
 export const FundsBarChart: React.FC<FundsBarChartProps> = ({ 
   units, 
   xianhui, 
   yincheng, 
-  meiyi 
+  meiyi,
+  rongdan = [],
+  jindan = [],
+  dilian = []
 }) => {
   const option = {
-    color: ['#3b82f6', '#10b981', '#f59e0b'],
+    color: ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#64748b'],
     tooltip: { 
       trigger: 'axis' 
     },
@@ -51,6 +57,30 @@ export const FundsBarChart: React.FC<FundsBarChartProps> = ({
         name: '美易单',
         type: 'bar',
         data: meiyi,
+        label: { 
+          show: true 
+        }
+      },
+      {
+        name: '融单',
+        type: 'bar',
+        data: rongdan,
+        label: { 
+          show: true 
+        }
+      },
+      {
+        name: '金单',
+        type: 'bar',
+        data: jindan,
+        label: { 
+          show: true 
+        }
+      },
+      {
+        name: '迪链',
+        type: 'bar',
+        data: dilian,
         label: { 
           show: true 
         }

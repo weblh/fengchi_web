@@ -5,17 +5,26 @@ interface FundBalancePieChartProps {
   cashBalance: number;
   bankBalance: number;
   otherBalance: number;
+  rongdanBalance?: number;
+  jindanBalance?: number;
+  dilianBalance?: number;
 }
 
 export const FundBalancePieChart: React.FC<FundBalancePieChartProps> = ({ 
   cashBalance, 
   bankBalance, 
-  otherBalance 
+  otherBalance,
+  rongdanBalance = 0,
+  jindanBalance = 0,
+  dilianBalance = 0
 }) => {
   const fundPieData = [
     { name: '现汇', value: cashBalance },
     { name: '银承', value: bankBalance },
-    { name: '美易单', value: otherBalance }
+    { name: '美易单', value: otherBalance },
+    { name: '融单', value: rongdanBalance },
+    { name: '金单', value: jindanBalance },
+    { name: '迪链', value: dilianBalance }
   ].filter(d => d.value > 0);
 
   const option = {

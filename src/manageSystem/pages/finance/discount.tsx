@@ -2,20 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Space, Button, Form, Input, Modal, message, Upload, Select, InputNumber } from 'antd';
 import type { UploadProps } from 'antd';
 import { DownloadOutlined, UploadOutlined, PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
+import request from '../../../utils/request';
 
 const { Option } = Select;
 
 interface FinanceDiscount {
   id: number;
-  month: string;
-  discount_amount: number;
-  discount_interest: number;
-  interest_rate: number;
-  listing_price_type: string | null;
-  listing_price_rate: number | null;
+  period: string;
+  discountAmount: number;
+  discountInterest: number;
+  interestRate: number;
+  listingPriceType: string | null;
+  listingPriceRate: number | null;
   year: number;
-  create_time: string;
-  update_time: string;
+  deleted: number;
+  createTime: string;
+  updateTime: string;
 }
 
 const DiscountPage: React.FC = () => {
@@ -31,24 +34,18 @@ const DiscountPage: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      let url = '/api/finance-discount/list';
-      const params = new URLSearchParams();
+      const params: any = {};
       
       if (yearFilter) {
-        params.append('year', yearFilter.toString());
+        params.year = yearFilter.toString();
       }
       
       if (monthFilter) {
-        params.append('month', monthFilter);
+        params.period = monthFilter;
       }
       
-      if (params.toString()) {
-        url += `?${params.toString()}`;
-      }
-      
-      const response = await fetch(url);
-      const result = await response.json();
-      setData(result.data || []);
+      const result = await request.get('/api/finance-discount/list', params);
+      setData(result || []);
     } catch (error) {
       message.error('获取数据失败');
       console.error('Error fetching data:', error);
@@ -63,23 +60,59 @@ const DiscountPage: React.FC = () => {
   }, [yearFilter, monthFilter]);
 
   // 导出数据
-  const handleExport = () => {
-    let url = '/api/finance-discount/export';
-    const params = new URLSearchParams();
-    
-    if (yearFilter) {
-      params.append('year', yearFilter.toString());
+  const handleExport = async () => {
+    try {
+      const params: any = {};
+      
+      if (yearFilter) {
+        params.year = yearFilter.toString();
+      }
+      
+      if (monthFilter) {
+        params.period = monthFilter;
+      }
+      
+      // 获取 token
+      const token = localStorage.getItem('token');
+      
+      // 构建完整的 URL
+      let url = '/api/finance-discount/export';
+      const searchParams = new URLSearchParams();
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, String(value));
+        }
+      });
+      if (searchParams.toString()) {
+        url += `?${searchParams.toString()}`;
+      }
+      
+      // 创建一个新的请求，携带 token
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      // 获取 blob 数据并下载
+      const blob = await response.blob();
+      const urlBlob = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = urlBlob;
+      link.download = `finance_discount_${dayjs().format('YYYY-MM-DD')}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(urlBlob);
+    } catch (error) {
+      message.error('导出失败');
+      console.error('Error exporting data:', error);
     }
-    
-    if (monthFilter) {
-      params.append('month', monthFilter);
-    }
-    
-    if (params.toString()) {
-      url += `?${params.toString()}`;
-    }
-    
-    window.open(url, '_blank');
   };
 
   // 导入数据
@@ -87,7 +120,7 @@ const DiscountPage: React.FC = () => {
     name: 'file',
     action: '/api/finance-discount/import',
     headers: {
-      'Content-Type': 'multipart/form-data',
+      'Authorization': localStorage.getItem('token') ? `Bearer ${localStorage.getItem('token')}` : '',
     },
     onChange(info) {
       if (info.file.status === 'done') {
@@ -104,12 +137,12 @@ const DiscountPage: React.FC = () => {
     setEditingRecord(record);
     if (record) {
       form.setFieldsValue({
-        month: record.month,
-        discount_amount: record.discount_amount,
-        discount_interest: record.discount_interest,
-        interest_rate: record.interest_rate,
-        listing_price_type: record.listing_price_type,
-        listing_price_rate: record.listing_price_rate,
+        period: record.period,
+        discount_amount: record.discountAmount,
+        discount_interest: record.discountInterest,
+        interest_rate: record.interestRate,
+        listing_price_type: record.listingPriceType,
+        listing_price_rate: record.listingPriceRate,
         year: record.year,
       });
     } else {
@@ -127,29 +160,16 @@ const DiscountPage: React.FC = () => {
         ...values,
       };
 
-      let url = editingRecord ? '/api/finance-discount/update' : '/api/finance-discount/add';
-      const method = editingRecord ? 'PUT' : 'POST';
-
       if (editingRecord) {
         submitData.id = editingRecord.id;
-      }
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(submitData),
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        message.success(editingRecord ? '更新成功' : '添加成功');
-        setModalVisible(false);
-        fetchData();
+        await request.put('/finance-discount/update', submitData);
       } else {
-        message.error(result.message || '操作失败');
+        await request.post('/finance-discount/add', submitData);
       }
+
+      message.success(editingRecord ? '更新成功' : '添加成功');
+      setModalVisible(false);
+      fetchData();
     } catch (error) {
       message.error('操作失败');
       console.error('Error submitting form:', error);
@@ -159,17 +179,9 @@ const DiscountPage: React.FC = () => {
   // 删除数据
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/finance-discount/delete/${id}`, {
-        method: 'DELETE',
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        message.success('删除成功');
-        fetchData();
-      } else {
-        message.error(result.message || '删除失败');
-      }
+      await request.delete(`/finance-discount/delete/${id}`);
+      message.success('删除成功');
+      fetchData();
     } catch (error) {
       message.error('删除失败');
       console.error('Error deleting data:', error);
@@ -179,43 +191,26 @@ const DiscountPage: React.FC = () => {
   const columns = [
     {
       title: '年份',
-      dataIndex: 'year',
-      key: 'year',
-    },
-    {
-      title: '月份',
-      dataIndex: 'month',
-      key: 'month',
+      dataIndex: 'period',
+      key: 'period',
     },
     {
       title: '贴现金额（元）',
-      dataIndex: 'discount_amount',
-      key: 'discount_amount',
-      render: (text: number) => text.toFixed(2),
+      dataIndex: 'discountAmount',
+      key: 'discountAmount',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
     },
     {
       title: '贴现利息（元）',
-      dataIndex: 'discount_interest',
-      key: 'discount_interest',
-      render: (text: number) => text.toFixed(2),
+      dataIndex: 'discountInterest',
+      key: 'discountInterest',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(2) : '0.00'),
     },
     {
       title: '利率（%）',
-      dataIndex: 'interest_rate',
-      key: 'interest_rate',
-      render: (text: number) => text.toFixed(4),
-    },
-    {
-      title: '挂牌价类型',
-      dataIndex: 'listing_price_type',
-      key: 'listing_price_type',
-      render: (text: string | null) => text || '-',
-    },
-    {
-      title: '挂牌价利率（%）',
-      dataIndex: 'listing_price_rate',
-      key: 'listing_price_rate',
-      render: (text: number | null) => text ? text.toFixed(4) : '-',
+      dataIndex: 'interestRate',
+      key: 'interestRate',
+      render: (text: number) => (text !== undefined && text !== null ? text.toFixed(4) : '0.0000'),
     },
     {
       title: '操作',
@@ -246,46 +241,9 @@ const DiscountPage: React.FC = () => {
   return (
     <div>
       <Card 
-        title="融资贴息与挂牌价管理"
+        title="贴息管理"
         extra={
           <Space>
-            <Select 
-              placeholder="选择年份" 
-              style={{ width: 120 }} 
-              value={yearFilter}
-              onChange={setYearFilter}
-            >
-              <Option value={2024}>2024</Option>
-              <Option value={2025}>2025</Option>
-              <Option value={2026}>2026</Option>
-              <Option value={2027}>2027</Option>
-            </Select>
-            <Select 
-              placeholder="选择月份" 
-              style={{ width: 120 }} 
-              value={monthFilter}
-              onChange={setMonthFilter}
-            >
-              <Option value="1月">1月</Option>
-              <Option value="2月">2月</Option>
-              <Option value="3月">3月</Option>
-              <Option value="4月">4月</Option>
-              <Option value="5月">5月</Option>
-              <Option value="6月">6月</Option>
-              <Option value="7月">7月</Option>
-              <Option value="8月">8月</Option>
-              <Option value="9月">9月</Option>
-              <Option value="10月">10月</Option>
-              <Option value="11月">11月</Option>
-              <Option value="12月">12月</Option>
-            </Select>
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={() => openModal()}
-            >
-              添加
-            </Button>
             <Button 
               icon={<DownloadOutlined />}
               onClick={handleExport}
@@ -326,23 +284,23 @@ const DiscountPage: React.FC = () => {
             </Select>
           </Form.Item>
           <Form.Item
-            name="month"
-            label="月份"
-            rules={[{ required: true, message: '请选择月份' }]}
+            name="period"
+            label="期间"
+            rules={[{ required: true, message: '请选择期间' }]}
           >
-            <Select placeholder="选择月份">
-              <Option value="1月">1月</Option>
-              <Option value="2月">2月</Option>
-              <Option value="3月">3月</Option>
-              <Option value="4月">4月</Option>
-              <Option value="5月">5月</Option>
-              <Option value="6月">6月</Option>
-              <Option value="7月">7月</Option>
-              <Option value="8月">8月</Option>
-              <Option value="9月">9月</Option>
-              <Option value="10月">10月</Option>
-              <Option value="11月">11月</Option>
-              <Option value="12月">12月</Option>
+            <Select placeholder="选择期间">
+              <Option value="2025-01">2025-01</Option>
+              <Option value="2025-02">2025-02</Option>
+              <Option value="2025-03">2025-03</Option>
+              <Option value="2025-04">2025-04</Option>
+              <Option value="2025-05">2025-05</Option>
+              <Option value="2025-06">2025-06</Option>
+              <Option value="2025-07">2025-07</Option>
+              <Option value="2025-08">2025-08</Option>
+              <Option value="2025-09">2025-09</Option>
+              <Option value="2025-10">2025-10</Option>
+              <Option value="2025-11">2025-11</Option>
+              <Option value="2025-12">2025-12</Option>
             </Select>
           </Form.Item>
           <Form.Item
