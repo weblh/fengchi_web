@@ -367,7 +367,8 @@ export const FinancialDashboard: React.FC = () => {
     return {
       type,
       value: parseFloat(percentage),
-      color: colors[index % colors.length]
+      color: colors[index % colors.length],
+      amount: typeTotalAmount
     };
   }).filter(item => item.value > 0);
   
@@ -614,7 +615,7 @@ export const FinancialDashboard: React.FC = () => {
             {/* 月度回款结构饼状图 */}
             <div className="pie-card" onClick={() => switchToLevel('collection')}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3>💵 月度回款结构 (比率%)</h3>
+                <h3>💵 累计回款结构 (比率%)</h3>
                 <div className="date-selector"><span className="status-dot"></span> 更新时间: {updateTimeStr()}</div>
               </div>
               <div className="pie-chart">

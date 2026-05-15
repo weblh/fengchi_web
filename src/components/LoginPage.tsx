@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Input, Form, Typography, message, Modal, Alert } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import loginIcon from '../assets/login-icon.jpg';
+
 import request from '../utils/request';
 import deviceFingerprint from '../utils/deviceFingerprint';
 
@@ -184,28 +184,37 @@ const LoginPage: React.FC = () => {
     <div className="min-h-screen flex overflow-hidden relative bg-gradient-to-br from-gray-900 to-blue-900" style={{ 
       backgroundColor: '#00081b',
       color: 'white',
+      width: '100%',
+      minHeight: '100vh',
        }}>
-      {/* 左侧背景图片 */}
-      <div className="w-2/3 flex items-center justify-center p-8 relative">
-        <div className="relative w-full h-full max-w-3xl">
-          {/* 科技感工业设备图片 */}
-          <div className="w-full h-full flex items-center justify-center">
-            <div className="relative w-full max-w-2xl">
-              {/* 使用提供的素材图片 */}
-              <div className="w-full h-auto aspect-video bg-blue-900 rounded-lg overflow-hidden" style={{height:'100vh',display:'flex',alignItems:'center'}}>
-                <img 
-                  src={loginIcon} 
-                  alt="工业设备3D模型" 
-                  className="w-3/5 h-auto object-contain mx-auto my-8"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* 全屏背景视频 */}
+      <div className="fixed inset-0 z-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            objectFit: 'cover',
+          }}
+          >
+          <source src="/meidu/shipin.cmfv" type="video/mp4" />
+        </video>
+        <div 
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to right, rgba(0, 8, 27, 0.9), rgba(0, 8, 27, 0.6), transparent)',
+          }}
+        />
       </div>
 
-      {/* 右侧登录表单 */}
-      <div className="w-1/3 flex flex-col items-center justify-center p-8 relative z-10">
+      {/* 登录表单 */}
+      <div className="flex flex-col items-center justify-center p-8 relative z-10" style={{ margin: "0 20% 0 auto", backgroundColor: "rgba(0, 8, 27, 0.5)", borderRadius: "8px", padding: "24px" }}>
         <div className="w-full max-w-md bg-gray-800/80 backdrop-blur-sm rounded-lg p-8 shadow-2xl ">
           <div className="mb-8">
             <Title level={3} className="text-white mb-2"  style={{ color: 'white' }}>丰驰信息化平台</Title>
@@ -229,8 +238,8 @@ const LoginPage: React.FC = () => {
             layout="vertical"
           >
             <Form.Item
-              label="邮箱"
-              style={{ color: 'white', marginBottom: '16px' }}
+              label={<span style={{ color: 'white' }}>邮箱</span>}
+              style={{ marginBottom: '16px' }}
               name="email"
               rules={[{ required: true, message: '请输入邮箱' }, { type: 'email', message: '请输入有效的邮箱地址' }]}
               className="mb-4"
@@ -246,12 +255,13 @@ const LoginPage: React.FC = () => {
                   backgroundColor: '#1F2937',
                   height: '44px'
                 }}
+                placeholderStyle={{ color: 'white' }}
               />
             </Form.Item>
 
             <Form.Item
-              label="密码"
-              style={{ color: 'white', marginBottom: '24px' }}
+              label={<span style={{ color: 'white' }}>密码</span>}
+              style={{ marginBottom: '24px' }}
               name="password"
               rules={[{ message: '请输入密码' }]}
               className="mb-6"
@@ -267,6 +277,7 @@ const LoginPage: React.FC = () => {
                   backgroundColor: '#1F2937',
                   height: '44px'
                 }}
+                placeholderStyle={{ color: 'white' }}
               />
             </Form.Item>
 
@@ -277,11 +288,19 @@ const LoginPage: React.FC = () => {
                 className="w-full h-11 text-base font-medium"
                 loading={loading}
                 style={{ 
-                  backgroundColor: '#3B82F6',
-                  borderColor: '#3B82F6',
-                  borderRadius: '4px',
-                  height: '44px',
-                  color: 'white',
+                  background: 'transparent',
+                  border: '2px solid #3B82F6',
+                  borderRadius: '8px',
+                  height: '48px',
+                  color: '#3B82F6',
+                  fontWeight: '600',
+                  fontSize: '16px',
+                  transition: 'all 0.3s ease',
+                }}
+                hoverStyle={{ 
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  borderColor: '#60A5FA',
+                  color: '#60A5FA',
                 }}
               >
                 登录

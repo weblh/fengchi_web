@@ -17,7 +17,7 @@ export const CollectionTypePieChart: React.FC<CollectionTypePieChartProps> = ({ 
   const option = {
     tooltip: { 
       trigger: 'item', 
-      formatter: '{b}: {c}% ({d}%)' 
+      formatter: '{b}: {c}%'
     },
     legend: { 
       bottom: 0 
@@ -28,7 +28,7 @@ export const CollectionTypePieChart: React.FC<CollectionTypePieChartProps> = ({ 
       data: pieData,
       label: {
         show: true,
-        formatter: '{b}\n{c}%\n{d}%'
+        formatter: '{b}\n{c}%'
       }
     }]
   };

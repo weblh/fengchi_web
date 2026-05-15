@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import ReactECharts from 'echarts-for-react';
 import * as echarts from 'echarts';
-import { Card, Button, Select, Table, Tag, Row, Col } from 'antd';
+import { Card, Button, Select, Table, Tag, Row, Col, Spin } from 'antd';
 import request from '../../../utils/request';
 import './PurchaseDashboard.css';
 
@@ -209,6 +209,169 @@ const getProvinceCenter = (province: string): [number, number] => {
   };
   return centers[province] || [104.5, 36.5];
 };
+
+/** provinceData / cityData 使用省级简称作 key；界面标题用完整区划名 */
+const formatProvinceRegionTitle = (shortName: string): string => {
+  const municipalities = new Set(['北京', '天津', '上海', '重庆']);
+  if (municipalities.has(shortName)) {
+    return `${shortName}市`;
+  }
+  if (shortName === '内蒙古') return '内蒙古自治区';
+  if (shortName === '广西') return '广西壮族自治区';
+  if (shortName === '西藏') return '西藏自治区';
+  if (shortName === '宁夏') return '宁夏回族自治区';
+  if (shortName === '新疆') return '新疆维吾尔自治区';
+  if (shortName === '香港') return '香港特别行政区';
+  if (shortName === '澳门') return '澳门特别行政区';
+  if (shortName === '台湾') return '台湾省';
+  return `${shortName}省`;
+};
+
+/** 阿里云 DataV 省级边界 adcode，用于加载「仅该省」地图 GeoJSON */
+const PROVINCE_GEO_ADCODE: Record<string, string> = {
+  北京: '110000',
+  天津: '120000',
+  河北: '130000',
+  山西: '140000',
+  内蒙古: '150000',
+  辽宁: '210000',
+  吉林: '220000',
+  黑龙江: '230000',
+  上海: '310000',
+  江苏: '320000',
+  浙江: '330000',
+  安徽: '340000',
+  福建: '350000',
+  江西: '360000',
+  山东: '370000',
+  河南: '410000',
+  湖北: '420000',
+  湖南: '430000',
+  广东: '440000',
+  广西: '450000',
+  海南: '460000',
+  重庆: '500000',
+  四川: '510000',
+  贵州: '520000',
+  云南: '530000',
+  西藏: '540000',
+  陕西: '610000',
+  甘肃: '620000',
+  青海: '630000',
+  宁夏: '640000',
+  新疆: '650000',
+  台湾: '710000',
+  香港: '810000',
+  澳门: '820000',
+};
+
+/** public/geo 资源 URL。Vite base 为 `./` 时若用 `./geo/` 会在非根路径路由下解析到错误地址，故相对 base 时用站点根路径 `/geo/` */
+const getGeoAssetUrl = (file: string): string => {
+  const base = import.meta.env.BASE_URL ?? '/';
+  if (base.startsWith('/')) {
+    const p = base.endsWith('/') ? base : `${base}/`;
+    return `${p}geo/${file}`.replace(/\/{2,}/g, '/');
+  }
+  return `/geo/${file}`;
+};
+
+const getProvinceGeoJsonUrl = (adcode: string): string => getGeoAssetUrl(`${adcode}_full.json`);
+
+/**
+ * 全国 100000_full 仅含省级面，无法得到省内地市；无单省文件时用于降级显示省界轮廓。
+ */
+const extractProvinceOutlineFromChina = (chinaGeo: { features?: any[] }, provinceAdcode: string): { type: 'FeatureCollection'; features: any[] } | null => {
+  if (!chinaGeo?.features?.length) return null;
+  const code = String(provinceAdcode);
+  const matchAdcode = (f: any) => String(f?.properties?.adcode) === code;
+  let hit = chinaGeo.features.find((f: any) => matchAdcode(f) && f?.properties?.level === 'province');
+  if (!hit) {
+    hit = chinaGeo.features.find((f: any) => matchAdcode(f));
+  }
+  if (!hit) return null;
+  return { type: 'FeatureCollection', features: [hit] };
+};
+
+/** 省界降级：缓存为空时按序拉取全国图（本地 → DataV → 备用），写入 chinaRef */
+async function fetchChinaGeoJsonForOutline(chinaRef: { current: { features?: any[] } | null }): Promise<{ features?: any[] } | null> {
+  if (chinaRef.current?.features?.length) {
+    return chinaRef.current;
+  }
+  const urls = [
+    getGeoAssetUrl('100000_full.json'),
+    'https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json',
+    'https://geojson.cn/data/china.json',
+  ];
+  for (const url of urls) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) continue;
+      const data = await res.json();
+      if (data?.features?.length) {
+        chinaRef.current = data;
+        return data;
+      }
+    } catch {
+      /* 下一源 */
+    }
+  }
+  return null;
+};
+
+/** 可选：`public/geo/provinces_pack.json`，形如 `{ "410000": { type, features }, ... }`，一次请求覆盖多省地市边界 */
+const isProvincePack = (obj: unknown): obj is Record<string, { type: string; features: unknown[] }> => {
+  if (!obj || typeof obj !== 'object') return false;
+  const rec = obj as Record<string, unknown>;
+  const keys = Object.keys(rec);
+  if (!keys.length) return false;
+  const v = rec[keys[0]];
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    (v as { type?: string }).type === 'FeatureCollection' &&
+    Array.isArray((v as { features?: unknown[] }).features)
+  );
+};
+
+/** 地图要素名称（如「西安市」）与本地 cityData 城市名对齐 */
+const matchCityRow = (
+  featureName: string,
+  rows: { city: string; orderQty: number; suppliers: number }[]
+): { city: string; orderQty: number; suppliers: number } | undefined => {
+  const raw = (featureName || '').trim();
+  if (!raw) return undefined;
+  const exact = rows.find((r) => r.city === raw);
+  if (exact) return exact;
+  const noSuffix = raw.replace(/(市|自治州|地区|盟|县|区|旗)$/, '');
+  return rows.find((r) => r.city === noSuffix || raw.startsWith(r.city) || noSuffix === r.city);
+};
+
+const parseSupplierTokens = (suppliersList: string | string[]): string[] => {
+  if (Array.isArray(suppliersList)) {
+    return suppliersList.map((s) => String(s).trim()).filter(Boolean);
+  }
+  return String(suppliersList || '')
+    .split('、')
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
+const LEVEL2_KPI_TABLE_COLUMNS = [
+  { title: '指标', dataIndex: 'label', key: 'label', width: 200 },
+  { title: '数值', dataIndex: 'value', key: 'value' },
+];
+
+const LEVEL2_CITY_TABLE_COLUMNS = [
+  { title: '城市', dataIndex: 'city', key: 'city' },
+  { title: '订货量（吨）', dataIndex: 'orderQty', key: 'orderQty', align: 'right' as const },
+  { title: '供应商数', dataIndex: 'suppliers', key: 'suppliers', align: 'right' as const },
+];
+
+const LEVEL2_FLOW_TABLE_COLUMNS = [
+  { title: '起点', dataIndex: 'from', key: 'from' },
+  { title: '终点', dataIndex: 'to', key: 'to' },
+  { title: '流向强度', dataIndex: 'value', key: 'value', align: 'right' as const },
+];
 
 const getFlightLines = (province: string): { from: string; to: string; coords: [[number, number], [number, number]]; value: number }[] => {
   const lines = flightLinesData[province] || [];
@@ -463,6 +626,13 @@ const PurchaseDashboard: React.FC = () => {
   const dashboardRef = useRef<HTMLDivElement>(null);
   const orderCardsRef = useRef<HTMLDivElement>(null);
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  /** 一级地图加载后的全国 GeoJSON，用于省级地图降级截取省界 */
+  const chinaGeoJsonRef = useRef<{ features?: any[] } | null>(null);
+  /** 可选 `provinces_pack.json` 解析结果，只拉取一次 */
+  const provincePackCacheRef = useRef<{ attempted: boolean; data: Record<string, { type: string; features: any[] }> | null }>({
+    attempted: false,
+    data: null,
+  });
 
   // API数据状态
   const [dailyFundData, setDailyFundData] = useState<any[]>([]);
@@ -472,6 +642,9 @@ const PurchaseDashboard: React.FC = () => {
   const [chinaMapLoaded, setChinaMapLoaded] = useState<boolean>(false);
   const [mapLoading, setMapLoading] = useState<boolean>(true);
   const [selectedProvince, setSelectedProvince] = useState<string | null>(null);
+  const [provinceGeoMapName, setProvinceGeoMapName] = useState<string | null>(null);
+  const [provinceGeoLoading, setProvinceGeoLoading] = useState(false);
+  const [provinceGeoError, setProvinceGeoError] = useState<string | null>(null);
 
   const totalTons = purchaseOrderData.reduce((sum, order) => sum + order.qty, 0);
   const activeSupplierCount = new Set(purchaseOrderData.map(order => order.supplier)).size;
@@ -487,7 +660,7 @@ const PurchaseDashboard: React.FC = () => {
       provName = provName.substring(0, provName.length - 1);
     }
     if (provinceData[provName]) {
-      setSelectedProvince(params.name);
+      setSelectedProvince(provName);
       setActiveLevel2Card('map');
       setActiveLevel('level2');
     }
@@ -572,11 +745,23 @@ const PurchaseDashboard: React.FC = () => {
     const loadChinaMap = async () => {
       try {
         setMapLoading(true);
-        const response = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
-        if (!response.ok) {
-          throw new Error('Failed to load China map data');
+        let chinaMapData: { features?: any[] } | null = null;
+        try {
+          const localRes = await fetch(getGeoAssetUrl('100000_full.json'));
+          if (localRes.ok) {
+            chinaMapData = await localRes.json();
+          }
+        } catch {
+          /* 忽略本地缺失 */
         }
-        const chinaMapData = await response.json();
+        if (!chinaMapData) {
+          const response = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
+          if (!response.ok) {
+            throw new Error('Failed to load China map data');
+          }
+          chinaMapData = await response.json();
+        }
+        chinaGeoJsonRef.current = chinaMapData;
         echarts.registerMap('china', chinaMapData);
         setChinaMapLoaded(true);
       } catch (error) {
@@ -585,6 +770,7 @@ const PurchaseDashboard: React.FC = () => {
           const response = await fetch('https://geojson.cn/data/china.json');
           if (response.ok) {
             const chinaMapData = await response.json();
+            chinaGeoJsonRef.current = chinaMapData;
             echarts.registerMap('china', chinaMapData);
             setChinaMapLoaded(true);
           }
@@ -601,6 +787,92 @@ const PurchaseDashboard: React.FC = () => {
     }
   }, [chinaMapLoaded]);
 
+  useEffect(() => {
+    if (activeLevel !== 'level2' || activeLevel2Card !== 'map' || !selectedProvince) {
+      return undefined;
+    }
+    const adcode = PROVINCE_GEO_ADCODE[selectedProvince];
+    if (!adcode) {
+      setProvinceGeoMapName(null);
+      setProvinceGeoError('暂无该省份地图数据');
+      return undefined;
+    }
+    const mapKey = `provinceGeo_${adcode}`;
+    let cancelled = false;
+    setProvinceGeoLoading(true);
+    setProvinceGeoError(null);
+    setProvinceGeoMapName(null);
+    (async () => {
+      try {
+        let json: { type: string; features: any[] } | null = null;
+
+        if (!provincePackCacheRef.current.attempted) {
+          provincePackCacheRef.current.attempted = true;
+          try {
+            const packRes = await fetch(getGeoAssetUrl('provinces_pack.json'));
+            if (packRes.ok) {
+              const packRaw = await packRes.json();
+              if (isProvincePack(packRaw)) {
+                provincePackCacheRef.current.data = packRaw;
+              }
+            }
+          } catch {
+            /* 无大包时忽略 */
+          }
+        }
+
+        const fromPack = provincePackCacheRef.current.data?.[adcode];
+        if (fromPack?.features?.length) {
+          json = fromPack;
+        }
+
+        if (!json) {
+          const res = await fetch(getProvinceGeoJsonUrl(adcode));
+          if (res.ok) {
+            json = await res.json();
+          }
+        }
+
+        if (!json?.features?.length) {
+          let china = chinaGeoJsonRef.current;
+          if (!china?.features?.length) {
+            china = await fetchChinaGeoJsonForOutline(chinaGeoJsonRef);
+            if (china?.features?.length) {
+              try {
+                echarts.registerMap('china', china);
+              } catch {
+                /* 已注册过同名地图 */
+              }
+            }
+          }
+          const outline = china ? extractProvinceOutlineFromChina(china, adcode) : null;
+          if (outline?.features?.length) {
+            json = outline;
+          }
+        }
+
+        if (!json?.features?.length) {
+          throw new Error('no province geo');
+        }
+        if (cancelled) return;
+        echarts.registerMap(mapKey, json);
+        setProvinceGeoMapName(mapKey);
+      } catch {
+        if (!cancelled) {
+          setProvinceGeoMapName(null);
+          setProvinceGeoError(
+            `暂无该省（adcode ${adcode}）矢量：请在 public/geo/provinces_pack.json 中包含 "${adcode}"，或添加 ${adcode}_full.json；纯离线请同时放置 100000_full.json 以显示省界轮廓。`
+          );
+        }
+      } finally {
+        if (!cancelled) setProvinceGeoLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLevel, activeLevel2Card, selectedProvince]);
+
   // 获取API数据
   useEffect(() => {
     const fetchData = async () => {
@@ -609,10 +881,10 @@ const PurchaseDashboard: React.FC = () => {
         
         // 获取每日资金计划数据
         try {
-          const fundResult = await request.get('/api/daily-fund-plan/list');
-          if (fundResult && fundResult.data) {
-            setDailyFundData(fundResult.data);
-          }
+          // const fundResult = await request.get('/api/daily-fund-plan/list');
+          // if (fundResult && fundResult.data) {
+            // setDailyFundData(fundResult.data);
+          // }
         } catch (error) {
           console.error('获取每日资金计划失败:', error);
         }
@@ -629,10 +901,10 @@ const PurchaseDashboard: React.FC = () => {
 
         // 获取采购订单数据
         try {
-          const orderResult = await request.get('/api/purchase-orders/list');
-          if (orderResult && orderResult.data) {
-            setPurchaseOrderData(orderResult.data);
-          }
+          // const orderResult = await request.get('/api/purchase-orders/list');
+          // if (orderResult && orderResult.data) {
+          //   setPurchaseOrderData(orderResult.data);
+          // }
         } catch (error) {
           console.error('获取采购订单失败:', error);
         }
@@ -1492,6 +1764,155 @@ const PurchaseDashboard: React.FC = () => {
     ]
   };
 
+  const buildProvinceDetailMapOption = () => {
+    if (!selectedProvince || !provinceGeoMapName) return {};
+    const rows = cityData[selectedProvince];
+    if (!rows) return {};
+    return {
+      backgroundColor: 'transparent',
+      tooltip: {
+        trigger: 'item' as const,
+        backgroundColor: 'rgba(10, 25, 47, 0.95)',
+        borderColor: '#0099ff',
+        borderWidth: 1,
+        textStyle: { color: '#e0f2ff' },
+        formatter: (params: any) => {
+          if (params.seriesType === 'scatter') {
+            const cityInfo = rows.find((c) => c.city === params.name) || matchCityRow(String(params.name || ''), rows);
+            return `
+              <div style="font-weight:bold;margin-bottom:6px;color:#00d4ff">${cityInfo?.city || params.name}</div>
+              <div>订货量: <strong style="color:#00d4ff">${cityInfo?.orderQty ?? 0}</strong> 吨</div>
+              <div>供应商: <strong style="color:#10b981">${cityInfo?.suppliers ?? 0}</strong> 家</div>
+            `;
+          }
+          if (params.seriesType === 'lines') {
+            return `
+              <div style="font-weight:bold;margin-bottom:6px;color:#00d4ff">${params.data.from} → ${params.data.to}</div>
+              <div>流向强度: <strong style="color:#f59e0b">${params.data.value}</strong></div>
+            `;
+          }
+          if (params.componentType === 'geo' && params.name) {
+            const row = matchCityRow(String(params.name), rows);
+            if (row) {
+              return `${row.city}<br/>订货量: ${row.orderQty} 吨<br/>供应商: ${row.suppliers} 家`;
+            }
+          }
+          return params.name ? String(params.name) : '';
+        },
+      },
+      geo: {
+        map: provinceGeoMapName,
+        roam: true,
+        zoom: 1.05,
+        layoutCenter: ['50%', '52%'],
+        layoutSize: '98%',
+        label: {
+          show: true,
+          fontSize: 10,
+          color: '#64748b',
+          formatter: (p: any) => {
+            const row = matchCityRow(String(p.name || ''), rows);
+            return row ? row.city : String(p.name || '');
+          },
+        },
+        itemStyle: {
+          areaColor: 'rgba(0, 35, 70, 0.5)',
+          borderColor: 'rgba(0, 212, 255, 0.5)',
+          borderWidth: 1,
+        },
+        emphasis: {
+          label: { color: '#e0f2ff' },
+          itemStyle: {
+            areaColor: 'rgba(0, 90, 130, 0.55)',
+            borderColor: '#00d4ff',
+            borderWidth: 1.5,
+          },
+        },
+      },
+      series: [
+        {
+          name: '采购节点',
+          type: 'scatter' as const,
+          coordinateSystem: 'geo' as const,
+          data: rows.map((c) => {
+            const coord = cityCoordinates[selectedProvince]?.[c.city];
+            return {
+              name: c.city,
+              value: coord ? [...coord, c.orderQty] : [0, 0, c.orderQty],
+              symbolSize: Math.max(11, Math.min(34, c.orderQty / 9)),
+              itemStyle: {
+                color: '#00d4ff',
+                shadowBlur: 12,
+                shadowColor: 'rgba(0, 212, 255, 0.45)',
+              },
+            };
+          }),
+          label: {
+            show: true,
+            formatter: '{b}',
+            position: 'bottom' as const,
+            fontSize: 9,
+            color: '#e0f2ff',
+          },
+        },
+        {
+          name: '采购流向',
+          type: 'lines' as const,
+          coordinateSystem: 'geo' as const,
+          data: getFlightLines(selectedProvince),
+          lineStyle: {
+            color: 'rgba(0, 212, 255, 0.65)',
+            width: 2,
+            curveness: 0.22,
+          },
+          effect: {
+            show: true,
+            period: 3,
+            trailLength: 0.45,
+            color: '#00d4ff',
+            symbolSize: 5,
+          },
+        },
+      ],
+    };
+  };
+
+  const provinceKpiTableRows =
+    selectedProvince && provinceData[selectedProvince]
+      ? (() => {
+          const p = provinceData[selectedProvince];
+          const suppliersText = Array.isArray(p.suppliersList)
+            ? p.suppliersList.join('、')
+            : String(p.suppliersList ?? '');
+          return [
+            { key: 'sup', label: '供应商数量', value: `${p.suppliers} 家` },
+            { key: 'ord', label: '订货总量', value: `${p.orderQty} 吨` },
+            { key: 'del', label: '已交付量', value: `${p.deliveredQty} 吨` },
+            { key: 'pen', label: '审批中订单', value: `${p.pendingOrders} 单` },
+            { key: 'main', label: '主要供应商', value: suppliersText },
+          ];
+        })()
+      : [];
+
+  const provinceFlowTableRows = selectedProvince
+    ? getFlightLines(selectedProvince).map((l, i) => ({
+        key: `${i}`,
+        from: l.from,
+        to: l.to,
+        value: l.value,
+      }))
+    : [];
+
+  const provinceOrderTableRows =
+    selectedProvince && provinceData[selectedProvince]
+      ? purchaseOrderData.filter((o) => {
+          const tokens = parseSupplierTokens(
+            provinceData[selectedProvince].suppliersList as unknown as string | string[]
+          );
+          return tokens.some((t) => o.supplier.includes(t));
+        })
+      : [];
+
   const orderDetailTableColumns = [
     { title: '序号', key: 'seq', render: (_, __, index) => index + 1 },
     { title: '采购订单编号', dataIndex: 'id', key: 'id' },
@@ -1762,7 +2183,7 @@ const PurchaseDashboard: React.FC = () => {
                   >
                     ← 返回
                   </button>
-                  <h1>{selectedProvince ? `${selectedProvince}省采购分析` : '智慧采购管理 | 深度分析'}</h1>
+                  <h1>{selectedProvince ? `${formatProvinceRegionTitle(selectedProvince)}采购分析` : '智慧采购管理 | 深度分析'}</h1>
                 </div>
                 <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <button 
@@ -1802,11 +2223,13 @@ const PurchaseDashboard: React.FC = () => {
                 </div>
               </div>
               <div className="charts-grid">
+                {activeLevel2Card !== 'map' && (
+                <>
                 {/* 省份详情卡片 */}
                 {selectedProvince && provinceData[selectedProvince] && (
                   <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)' }}>
                     <div className="chart-header-kpis">
-                      <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>{selectedProvince}省采购数据概览</h3>
+                      <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>{formatProvinceRegionTitle(selectedProvince)}采购数据概览</h3>
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', padding: '16px' }}>
                       <div style={{ background: 'rgba(0, 153, 255, 0.1)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
@@ -1837,7 +2260,7 @@ const PurchaseDashboard: React.FC = () => {
                 {selectedProvince && cityData[selectedProvince] && (
                   <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)' }}>
                     <div className="chart-header-kpis">
-                      <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>{selectedProvince}市级采购分布</h3>
+                      <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>{formatProvinceRegionTitle(selectedProvince)}各地采购分布</h3>
                     </div>
                     <div className="chart-container">
                       <ReactECharts 
@@ -1918,7 +2341,7 @@ const PurchaseDashboard: React.FC = () => {
                 {selectedProvince && cityData[selectedProvince] && (
                   <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)' }}>
                     <div className="chart-header-kpis">
-                      <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>市级采购分布</h3>
+                      <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>{formatProvinceRegionTitle(selectedProvince)}各地采购分布</h3>
                     </div>
                       <div className="chart-container">
                         <ReactECharts 
@@ -2009,35 +2432,22 @@ const PurchaseDashboard: React.FC = () => {
                       <div className="chart-header-kpis">
                         <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>供应商订单明细</h3>
                       </div>
-                      <div style={{ maxHeight: '250px', overflowY: 'auto', padding: '0 16px' }}>
-                        {purchaseOrderData.filter(o => o.supplier.includes(provinceData[selectedProvince].suppliersList.split('、')[0]) || 
-                                                      o.supplier.includes(provinceData[selectedProvince].suppliersList.split('、')[1]) ||
-                                                      o.supplier.includes(provinceData[selectedProvince].suppliersList.split('、')[2])).slice(0, 10).map(order => (
-                          <div 
-                            key={order.orderNo}
-                            style={{
-                              padding: '12px',
-                              borderBottom: '1px solid rgba(0, 153, 255, 0.2)',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <div>
-                              <div style={{ fontWeight: '600', color: '#e0f2ff', marginBottom: '4px' }}>{order.orderNo}</div>
-                              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                                {order.supplier} | {order.material} | {order.spec}
-                              </div>
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                              <div style={{ fontWeight: '600', color: '#00d4ff' }}>{order.qty} 吨</div>
-                              <div style={{ fontSize: '0.8rem', color: order.status === '已交付' ? '#10b981' : '#f59e0b' }}>{order.status}</div>
-                            </div>
-                          </div>
-                        ))}
+                      <div style={{ padding: '0 12px 12px' }}>
+                        <Table
+                          className="purchase-dashboard-level2-table"
+                          columns={orderDetailTableColumns}
+                          dataSource={provinceOrderTableRows}
+                          rowKey="id"
+                          pagination={{ pageSize: 8 }}
+                          size="small"
+                          scroll={{ x: 'max-content' }}
+                          bordered={false}
+                        />
                       </div>
                     </div>
                   )}
+                </>
+                )}
                 {/* 资金使用计划详情 */}
                 {activeLevel2Card === 'funds' && (
                   <div className="chart-card">
@@ -2173,309 +2583,118 @@ const PurchaseDashboard: React.FC = () => {
                   </div>
                 )}
 
-                {/* 地图详情 */}
-                {activeLevel2Card === 'map' && (
-                  <>
-                    {selectedProvince && provinceData[selectedProvince] && (
-                      <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)', gridColumn: '1 / -1' }}>
-                        <div className="chart-header-kpis">
-                          <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>{selectedProvince}省采购数据概览</h3>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', padding: '16px' }}>
-                          <div style={{ background: 'rgba(0, 153, 255, 0.1)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '4px' }}>供应商数量</div>
-                            <div style={{ color: '#00d4ff', fontSize: '1.5rem', fontWeight: 'bold' }}>{provinceData[selectedProvince].suppliers} 家</div>
-                          </div>
-                          <div style={{ background: 'rgba(0, 153, 255, 0.1)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '4px' }}>采购订单量</div>
-                            <div style={{ color: '#00d4ff', fontSize: '1.5rem', fontWeight: 'bold' }}>{provinceData[selectedProvince].orderQty} 吨</div>
-                          </div>
-                          <div style={{ background: 'rgba(0, 153, 255, 0.1)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '4px' }}>已交付量</div>
-                            <div style={{ color: '#10b981', fontSize: '1.5rem', fontWeight: 'bold' }}>{provinceData[selectedProvince].deliveredQty} 吨</div>
-                          </div>
-                          <div style={{ background: 'rgba(0, 153, 255, 0.1)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
-                            <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '4px' }}>审批中订单</div>
-                            <div style={{ color: '#f59e0b', fontSize: '1.5rem', fontWeight: 'bold' }}>{provinceData[selectedProvince].pendingOrders} 单</div>
-                          </div>
-                        </div>
-                        <div style={{ padding: '0 16px 16px' }}>
-                          <div style={{ color: '#94a3b8', fontSize: '0.8rem', marginBottom: '8px' }}>主要供应商：</div>
-                          <div style={{ color: '#e0f2ff', fontSize: '0.9rem' }}>{provinceData[selectedProvince].suppliersList}</div>
-                        </div>
+                {/* 地图详情：仅省级底图 + 表格展示指标与明细 */}
+                {activeLevel2Card === 'map' && selectedProvince && (
+                  <div style={{ gridColumn: '1 / -1', display: 'flex', flexDirection: 'column', gap: 14 }}>
+                    <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)' }}>
+                      <div className="chart-header-kpis">
+                        <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>{formatProvinceRegionTitle(selectedProvince)}行政区划与采购流向</h3>
                       </div>
-                    )}
-
-                    {selectedProvince && cityData[selectedProvince] && (
-                      <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)', gridColumn: '1 / -1', minHeight: '450px' }}>
-                        <div className="chart-header-kpis">
-                          <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>{selectedProvince}市级地图与采购流向</h3>
-                        </div>
-                        <div className="chart-container" style={{ height: '400px' }}>
-                          <ReactECharts 
-                            option={{
-                              backgroundColor: 'transparent',
-                              tooltip: {
-                                trigger: 'item',
-                                backgroundColor: 'rgba(10, 25, 47, 0.95)',
-                                borderColor: '#0099ff',
-                                borderWidth: 1,
-                                textStyle: { color: '#e0f2ff' },
-                                formatter: (params: any) => {
-                                  if (params.seriesType === 'scatter') {
-                                    const cityInfo = cityData[selectedProvince]?.find(c => c.city === params.name);
-                                    return `
-                                      <div style="font-weight: bold; margin-bottom: 8px; color: #00d4ff;">${params.name}</div>
-                                      <div>订货量: <strong style="color: #00d4ff">${cityInfo?.orderQty || 0}</strong> 吨</div>
-                                      <div>供应商: <strong style="color: #10b981">${cityInfo?.suppliers || 0}</strong> 家</div>
-                                    `;
-                                  } else if (params.seriesType === 'lines') {
-                                    return `
-                                      <div style="font-weight: bold; margin-bottom: 8px; color: #00d4ff;">${params.data.from} → ${params.data.to}</div>
-                                      <div>采购流向强度: <strong style="color: #f59e0b">${params.data.value}</strong></div>
-                                    `;
-                                  }
-                                  return '';
-                                }
-                              },
-                              geo: {
-                                map: 'china',
-                                roam: true,
-                                zoom: 5,
-                                center: getProvinceCenter(selectedProvince),
-                                label: {
-                                  show: true,
-                                  fontSize: 10,
-                                  color: '#00d4ff',
-                                  formatter: (params: any) => {
-                                    const cities = cityData[selectedProvince]?.map(c => c.city) || [];
-                                    if (cities.includes(params.name)) {
-                                      return params.name;
-                                    }
-                                    return '';
-                                  }
-                                },
-                                itemStyle: {
-                                  areaColor: 'rgba(0, 153, 255, 0.05)',
-                                  borderColor: 'rgba(0, 153, 255, 0.3)',
-                                  borderWidth: 1
-                                },
-                                emphasis: {
-                                  itemStyle: {
-                                    areaColor: 'rgba(0, 153, 255, 0.2)',
-                                    borderColor: '#00d4ff',
-                                    borderWidth: 2
-                                  }
-                                }
-                              },
-                              series: [
-                                {
-                                  name: '市级采购点',
-                                  type: 'scatter',
-                                  coordinateSystem: 'geo',
-                                  data: cityData[selectedProvince].map(c => {
-                                    const coord = cityCoordinates[selectedProvince]?.[c.city];
-                                    return {
-                                      name: c.city,
-                                      value: coord ? [...coord, c.orderQty] : [0, 0, c.orderQty],
-                                      symbolSize: Math.max(10, c.orderQty / 20),
-                                      itemStyle: {
-                                        color: '#00d4ff',
-                                        shadowBlur: 10,
-                                        shadowColor: 'rgba(0, 212, 255, 0.5)'
-                                      }
-                                    };
-                                  }),
-                                  label: {
-                                    show: true,
-                                    position: 'bottom',
-                                    fontSize: 9,
-                                    color: '#e0f2ff'
-                                  }
-                                },
-                                {
-                                  name: '采购流向',
-                                  type: 'lines',
-                                  coordinateSystem: 'geo',
-                                  data: getFlightLines(selectedProvince),
-                                  lineStyle: {
-                                    color: {
-                                      type: 'linear',
-                                      x: 0, y: 0, x2: 1, y2: 0,
-                                      colorStops: [
-                                        { offset: 0, color: 'rgba(0, 153, 255, 0.1)' },
-                                        { offset: 0.5, color: 'rgba(0, 212, 255, 0.5)' },
-                                        { offset: 1, color: 'rgba(0, 153, 255, 0.1)' }
-                                      ]
-                                    },
-                                    width: 2,
-                                    curveness: 0.2
-                                  },
-                                  effect: {
-                                    show: true,
-                                    period: 3,
-                                    trailLength: 0.5,
-                                    color: '#00d4ff',
-                                    symbolSize: 6
-                                  },
-                                  animation: true,
-                                  animationDuration: 3000,
-                                  animationEasing: 'linear'
-                                }
-                              ]
-                            }}
+                      <div
+                        className="chart-container purchase-province-map-wrap"
+                        style={{
+                          height: 'clamp(620px, 68vh, 880px)',
+                          minHeight: 620,
+                          display: 'flex',
+                          alignItems: 'stretch',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        {provinceGeoLoading ? (
+                          <Spin tip="加载省界地图..." />
+                        ) : provinceGeoError ? (
+                          <div style={{ color: '#f59e0b', padding: 24 }}>{provinceGeoError}</div>
+                        ) : provinceGeoMapName ? (
+                          <ReactECharts
+                            key={`${selectedProvince}-${provinceGeoMapName}`}
+                            option={buildProvinceDetailMapOption()}
                             style={{ height: '100%', width: '100%' }}
+                            notMerge
+                            lazyUpdate
+                          />
+                        ) : (
+                          <div style={{ color: '#94a3b8' }}>暂无地图</div>
+                        )}
+                      </div>
+                    </div>
+
+                    {provinceData[selectedProvince] && (
+                      <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)' }}>
+                        <div className="chart-header-kpis">
+                          <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>省级采购概览</h3>
+                        </div>
+                        <div style={{ padding: '0 12px 12px' }}>
+                          <Table
+                            className="purchase-dashboard-level2-table"
+                            columns={LEVEL2_KPI_TABLE_COLUMNS}
+                            dataSource={provinceKpiTableRows}
+                            rowKey="key"
+                            pagination={false}
+                            size="small"
+                            bordered={false}
                           />
                         </div>
                       </div>
                     )}
 
-                    {selectedProvince && cityData[selectedProvince] && (
+                    {cityData[selectedProvince] && (
                       <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)' }}>
                         <div className="chart-header-kpis">
-                          <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>市级采购分布</h3>
+                          <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>地市订货分布</h3>
                         </div>
-                        <div className="chart-container">
-                          <ReactECharts 
-                            option={{
-                              backgroundColor: 'transparent',
-                              tooltip: {
-                                trigger: 'axis',
-                                backgroundColor: 'rgba(10, 25, 47, 0.95)',
-                                borderColor: '#0099ff',
-                                borderWidth: 1,
-                                textStyle: { color: '#e0f2ff' },
-                                axisPointer: { type: 'shadow' }
-                              },
-                              grid: {
-                                left: '10%',
-                                right: '15%',
-                                bottom: '8%',
-                                top: '8%',
-                                containLabel: true
-                              },
-                              xAxis: {
-                                type: 'value',
-                                axisLabel: { color: '#94a3b8', fontSize: 10, formatter: '{value}吨' },
-                                axisLine: { lineStyle: { color: 'rgba(0, 153, 255, 0.3)' } },
-                                splitLine: { lineStyle: { color: 'rgba(0, 153, 255, 0.1)' } }
-                              },
-                              yAxis: {
-                                type: 'category',
-                                data: cityData[selectedProvince].map(c => c.city),
-                                axisLabel: { color: '#94a3b8', fontSize: 11 },
-                                axisLine: { lineStyle: { color: 'rgba(0, 153, 255, 0.3)' } },
-                                splitLine: { show: false }
-                              },
-                              series: [
-                                {
-                                  type: 'bar',
-                                  data: cityData[selectedProvince].map(c => ({
-                                    value: c.orderQty,
-                                    itemStyle: {
-                                      color: {
-                                        type: 'linear',
-                                        x: 0, y: 0, x2: 1, y2: 0,
-                                        colorStops: [
-                                          { offset: 0, color: '#0066ff' },
-                                          { offset: 1, color: '#00d4ff' }
-                                        ]
-                                      },
-                                      borderRadius: [0, 4, 4, 0]
-                                    }
-                                  })),
-                                  barWidth: '50%',
-                                  label: {
-                                    show: true,
-                                    position: 'right',
-                                    color: '#00d4ff',
-                                    fontSize: 10,
-                                    formatter: '{c}吨'
-                                  }
-                                }
-                              ]
-                            }}
-                            style={{ height: '280px' }}
+                        <div style={{ padding: '0 12px 12px' }}>
+                          <Table
+                            className="purchase-dashboard-level2-table"
+                            columns={LEVEL2_CITY_TABLE_COLUMNS}
+                            dataSource={cityData[selectedProvince]}
+                            rowKey="city"
+                            pagination={{ pageSize: 10 }}
+                            size="small"
+                            bordered={false}
                           />
                         </div>
                       </div>
                     )}
 
-                    {selectedProvince && cityData[selectedProvince] && (
+                    {provinceFlowTableRows.length > 0 && (
                       <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)' }}>
                         <div className="chart-header-kpis">
-                          <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>城市概览</h3>
+                          <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>采购流向（示意）</h3>
                         </div>
-                        <div style={{ padding: '16px', display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                          {cityData[selectedProvince].map(c => {
-                            const coord = cityCoordinates[selectedProvince]?.[c.city];
-                            return (
-                              <div 
-                                key={c.city}
-                                style={{
-                                  background: 'rgba(0, 153, 255, 0.1)',
-                                  border: '1px solid rgba(0, 153, 255, 0.3)',
-                                  borderRadius: '8px',
-                                  padding: '12px',
-                                  minWidth: '140px',
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  gap: '6px'
-                                }}
-                              >
-                                <div style={{ color: '#00d4ff', fontWeight: '600', fontSize: '0.9rem' }}>{c.city}</div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                                  <span style={{ color: '#94a3b8' }}>订货量:</span>
-                                  <span style={{ color: '#10b981' }}>{c.orderQty}吨</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem' }}>
-                                  <span style={{ color: '#94a3b8' }}>供应商:</span>
-                                  <span style={{ color: '#f59e0b' }}>{c.suppliers}家</span>
-                                </div>
-                                {coord && (
-                                  <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
-                                    {coord[0].toFixed(2)}, {coord[1].toFixed(2)}
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                        <div style={{ padding: '0 12px 12px' }}>
+                          <Table
+                            className="purchase-dashboard-level2-table"
+                            columns={LEVEL2_FLOW_TABLE_COLUMNS}
+                            dataSource={provinceFlowTableRows}
+                            rowKey="key"
+                            pagination={false}
+                            size="small"
+                            bordered={false}
+                          />
                         </div>
                       </div>
                     )}
 
-                    {selectedProvince && provinceData[selectedProvince] && (
-                      <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)', gridColumn: '1 / -1' }}>
+                    {provinceData[selectedProvince] && (
+                      <div className="chart-card" style={{ backgroundColor: 'rgba(10, 25, 47, 0.9)', borderColor: 'rgba(0, 153, 255, 0.3)' }}>
                         <div className="chart-header-kpis">
                           <h3 style={{ color: '#00d4ff', margin: '0', fontSize: '1.1rem' }}>供应商订单明细</h3>
                         </div>
-                        <div style={{ maxHeight: '250px', overflowY: 'auto', padding: '0 16px' }}>
-                          {purchaseOrderData.filter(o => 
-                            o.supplier.includes(provinceData[selectedProvince].suppliersList.split('、')[0]) || 
-                            o.supplier.includes(provinceData[selectedProvince].suppliersList.split('、')[1]) ||
-                            o.supplier.includes(provinceData[selectedProvince].suppliersList.split('、')[2])
-                          ).map(order => (
-                            <div key={order.id} style={{ 
-                              display: 'flex', 
-                              justifyContent: 'space-between', 
-                              padding: '12px', 
-                              borderBottom: '1px solid rgba(0, 153, 255, 0.2)',
-                              alignItems: 'center'
-                            }}>
-                              <div>
-                                <div style={{ color: '#e0f2ff', fontWeight: '600', marginBottom: '4px' }}>订单号: {order.id}</div>
-                                <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{order.supplier} - {order.material}</div>
-                              </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <div style={{ color: '#00d4ff', fontWeight: '600' }}>{order.delivered}/{order.qty} 吨</div>
-                                <div style={{ fontSize: '0.8rem', color: order.status === '已交付' ? '#10b981' : '#f59e0b' }}>{order.status}</div>
-                              </div>
-                            </div>
-                          ))}
+                        <div style={{ padding: '0 12px 12px' }}>
+                          <Table
+                            className="purchase-dashboard-level2-table"
+                            columns={orderDetailTableColumns}
+                            dataSource={provinceOrderTableRows}
+                            rowKey="id"
+                            pagination={{ pageSize: 10 }}
+                            size="small"
+                            scroll={{ x: 'max-content' }}
+                            bordered={false}
+                          />
                         </div>
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
               </div>
             </div>
@@ -2633,6 +2852,14 @@ const PurchaseDashboard: React.FC = () => {
             color: #e0f2ff;
         }
         .chart-container { width: 100%; height: 75vh; min-height: 0; flex: 1; }
+        .purchase-province-map-wrap {
+            flex: 1 1 auto;
+        }
+        .purchase-province-map-wrap > div {
+            flex: 1;
+            width: 100% !important;
+            min-height: 0;
+        }
         .chart-header-kpis {
             display: flex;
             justify-content: space-between;
@@ -2857,6 +3084,31 @@ const PurchaseDashboard: React.FC = () => {
         }
         .progress-text {
             font-size: 0.75rem;
+            color: #00d4ff;
+        }
+        .purchase-dashboard-level2-table.ant-table-wrapper .ant-table {
+            background: transparent;
+        }
+        .purchase-dashboard-level2-table .ant-table-thead > tr > th {
+            background: rgba(0, 40, 80, 0.6) !important;
+            color: #94a3b8 !important;
+            border-bottom: 1px solid rgba(0, 153, 255, 0.25) !important;
+        }
+        .purchase-dashboard-level2-table .ant-table-tbody > tr > td {
+            background: rgba(10, 25, 47, 0.6);
+            color: #e0f2ff;
+            border-bottom: 1px solid rgba(0, 153, 255, 0.12);
+        }
+        .purchase-dashboard-level2-table .ant-table-tbody > tr:hover > td {
+            background: rgba(0, 60, 100, 0.45) !important;
+        }
+        .purchase-dashboard-level2-table .ant-pagination-item a {
+            color: #94a3b8;
+        }
+        .purchase-dashboard-level2-table .ant-pagination-item-active {
+            border-color: #00d4ff;
+        }
+        .purchase-dashboard-level2-table .ant-pagination-item-active a {
             color: #00d4ff;
         }
         @media (max-width: 1024px) {

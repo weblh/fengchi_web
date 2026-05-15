@@ -643,6 +643,28 @@ const SalesDashboard: React.FC = () => {
     return monthPlans.reduce((sum, plan) => sum + (plan.actualQty || 0), 0);
   });
   
+  const currentMonthMaterialMap = new Map<string, { planQty: number; actualQty: number }>();
+  currentMonthMaterialPlans.forEach(plan => {
+    if (!currentMonthMaterialMap.has(plan.materialName)) {
+      currentMonthMaterialMap.set(plan.materialName, { planQty: 0, actualQty: 0 });
+    }
+    const current = currentMonthMaterialMap.get(plan.materialName)!;
+    currentMonthMaterialMap.set(plan.materialName, {
+      planQty: current.planQty + (plan.planQty || 0),
+      actualQty: current.actualQty + (plan.actualQty || 0)
+    });
+  });
+  
+  const sortedCurrentMonthMaterials = Array.from(currentMonthMaterialMap.entries()).sort((a, b) => {
+    const totalA = a[1].planQty + a[1].actualQty;
+    const totalB = b[1].planQty + b[1].actualQty;
+    return totalB - totalA;
+  }).slice(0, 6);
+  
+  const currentMaterialNames = sortedCurrentMonthMaterials.map(item => item[0]);
+  const currentMaterialPlanQtys = sortedCurrentMonthMaterials.map(item => item[1].planQty);
+  const currentMaterialActualQtys = sortedCurrentMonthMaterials.map(item => item[1].actualQty);
+  
   const marRingOption = {
     tooltip: {
       trigger: 'axis',
@@ -661,11 +683,11 @@ const SalesDashboard: React.FC = () => {
       data: ['计划销量', '实际销量'],
       textStyle: { fontSize: 12 }
     },
-    grid: { left: '6%', right: '4%', top: 40, bottom: 20, containLabel: true },
+    grid: { left: '6%', right: '4%', top: 40, bottom: 40, containLabel: true },
     xAxis: {
       type: 'category',
-      data: months,
-      axisLabel: { fontSize: 12, interval: 0 }
+      data: currentMaterialNames,
+      axisLabel: { fontSize: 10, interval: 0, rotate: 30 }
     },
     yAxis: {
       type: 'value',
@@ -687,7 +709,7 @@ const SalesDashboard: React.FC = () => {
       {
         name: '计划销量',
         type: 'bar',
-        data: monthlyPlanTotals,
+        data: currentMaterialPlanQtys,
         color: '#3b82f6',
         barWidth: 20,
         barCategoryGap: '30%',
@@ -709,7 +731,7 @@ const SalesDashboard: React.FC = () => {
       {
         name: '实际销量',
         type: 'bar',
-        data: monthlyActualTotals,
+        data: currentMaterialActualQtys,
         color: '#f97316',
         barWidth: 20,
         label: {
@@ -1364,7 +1386,7 @@ const SalesDashboard: React.FC = () => {
           <div className="card-item">
             <div className="card-header">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                <h3><i className="fas fa-calendar-alt"></i> 年度销售趋势</h3>
+                <h3><i className="fas fa-calendar-alt"></i> {currentMonthStr}物料销量达成</h3>
                 <div className="date-selector">
                   <span className="status-dot"></span> 更新时间: {materialLatestUpdate ? new Date(materialLatestUpdate).toLocaleDateString() : ''}
                   <i className="fas fa-chevron-circle-right"></i>
@@ -1372,7 +1394,7 @@ const SalesDashboard: React.FC = () => {
               </div>
             </div>
             <div className="ring-amount-info">
-              📊 年度计划销量: {monthlyPlanTotals.reduce((a, b) => a + b, 0).toLocaleString()}  |  年度实际销量: {monthlyActualTotals.reduce((a, b) => a + b, 0).toLocaleString()}
+              📊 计划销量: {currentTotalPlan.toLocaleString()}  |  实际销量: {currentTotalActual.toLocaleString()}  |  达成率: {currentCompletion.toFixed(1)}%
             </div>
             <div className="ring-chart" onClick={(e) => e.stopPropagation()}>
               <ReactECharts 
@@ -1380,14 +1402,7 @@ const SalesDashboard: React.FC = () => {
               style={{ width: '100%', height: '100%' }} 
               onEvents={{
                 click: function(params: any) {
-                  console.log('点击事件完整参数:', params);
-                  console.log('params.name:', params.name);
-                  console.log('params.data:', params.data);
-                  console.log('params.axisValue:', params.axisValue);
-                  const month = params.name || params.axisValue;
-                  console.log('最终获取的月份:', month);
-                  setSelectedMonth(month);
-                  setChartType('material');
+                  setChartType('monthly');
                   setActiveView('chart');
                 }
               }}
@@ -1403,7 +1418,7 @@ const SalesDashboard: React.FC = () => {
           <div className="card-item">
             <div className="card-header">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
-                <h3><i className="fas fa-chart-simple"></i> 年度总销售进度</h3>
+                <h3><i className="fas fa-chart-simple"></i> 固定销量达成</h3>
                 <div className="date-selector">
                   <span className="status-dot"></span> 更新时间: {salesPlans.length > 0 ? new Date(getLatestUpdateTime(salesPlans)).toLocaleDateString() : ''}
                   <i className="fas fa-chevron-circle-right"></i>
@@ -1649,24 +1664,106 @@ const SalesDashboard: React.FC = () => {
   // 渲染索赔详情视图
 
 
+  const getMonthlyMaterialChartOption = (month: string) => {
+    const monthPlans = materialPlans.filter(plan => plan.month === month);
+    const materialMap = new Map<string, { planQty: number; actualQty: number }>();
+    monthPlans.forEach(plan => {
+      if (!materialMap.has(plan.materialName)) {
+        materialMap.set(plan.materialName, { planQty: 0, actualQty: 0 });
+      }
+      const current = materialMap.get(plan.materialName)!;
+      materialMap.set(plan.materialName, {
+        planQty: current.planQty + (plan.planQty || 0),
+        actualQty: current.actualQty + (plan.actualQty || 0)
+      });
+    });
+    
+    const sortedEntries = Array.from(materialMap.entries()).sort((a, b) => {
+      const totalA = a[1].planQty + a[1].actualQty;
+      const totalB = b[1].planQty + b[1].actualQty;
+      return totalB - totalA;
+    });
+    
+    const materialNames = sortedEntries.map(item => item[0]);
+    const planQtys = sortedEntries.map(item => item[1].planQty);
+    const actualQtys = sortedEntries.map(item => item[1].actualQty);
+    
+    return {
+      tooltip: {
+        trigger: 'axis',
+        axisPointer: { type: 'shadow' },
+        formatter: function(params: any) {
+          let result = `${params[0].axisValue}<br/>`;
+          params.forEach((param: any) => {
+            result += `${param.marker} ${param.seriesName}: ${param.value.toLocaleString()}<br/>`;
+          });
+          return result;
+        }
+      },
+      legend: {
+        data: ['计划销量', '实际销量'],
+        textStyle: { fontSize: 10 }
+      },
+      grid: { left: '8%', right: '4%', top: 30, bottom: 40, containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: materialNames,
+        axisLabel: { fontSize: 9, interval: 0, rotate: 30 }
+      },
+      yAxis: {
+        type: 'value',
+        axisLabel: { 
+          fontSize: 10,
+          formatter: function(value: number) {
+            if (value >= 1000000) {
+              return (value / 1000000).toFixed(1) + 'M';
+            } else if (value >= 1000) {
+              return (value / 1000).toFixed(1) + 'K';
+            }
+            return value;
+          }
+        }
+      },
+      series: [
+        {
+          name: '计划销量',
+          type: 'bar',
+          data: planQtys,
+          color: '#3b82f6',
+          barWidth: 12,
+          barCategoryGap: '20%',
+          label: {
+            show: false
+          }
+        },
+        {
+          name: '实际销量',
+          type: 'bar',
+          data: actualQtys,
+          color: '#f97316',
+          barWidth: 12,
+          label: {
+            show: false
+          }
+        }
+      ]
+    };
+  };
+
+  // 获取有数据的月份（物料销量）
+  const materialMonthsWithData = months.filter(month => {
+    const monthPlans = materialPlans.filter(plan => plan.month === month);
+    const totalPlan = monthPlans.reduce((sum, plan) => sum + (plan.planQty || 0), 0);
+    const totalActual = monthPlans.reduce((sum, plan) => sum + (plan.actualQty || 0), 0);
+    return totalPlan > 0 || totalActual > 0;
+  });
+
   // 渲染图表详情视图
   const renderChartView = () => (
     <div id="chartSecondaryView" className="view view-secondary active-view">
       <div className="secondary-header">
         <h2 id="secondaryTitle">
-          {chartType === 'monthly' ? (
-            <>
-              <i className="fas fa-chart-line"></i> 2026年各月计划 vs 实际销量
-            </>
-          ) : (
-            <>
-              <i className="fas fa-chart-simple"></i> {(() => {
-                const displayMonth = selectedMonth || currentMonthStr;
-                console.log('二级页面显示的月份:', displayMonth);
-                return displayMonth;
-              })()} 物料销量明细
-            </>
-          )}
+          <i className="fas fa-chart-line"></i> 2026年各月物料销量明细
         </h2>
         <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <button 
@@ -1705,11 +1802,100 @@ const SalesDashboard: React.FC = () => {
           </button>
         </div>
       </div>
-      <div id="secondaryChartContainer" style={{ width: '100%', height: '85%' }}>
-        <ReactECharts 
-          option={chartType === 'monthly' ? monthlyChartOption : materialChartOption} 
-          style={{ width: '100%', height: '100%' }} 
-        />
+      <div id="secondaryChartContainer" style={{ width: '100%', height: 'calc(100vh - 80px)', overflowY: 'auto', padding: '16px', boxSizing: 'border-box' }}>
+        {/* 各月图表区域 */}
+        {materialMonthsWithData.map((month, index) => {
+          const monthPlans = materialPlans.filter(plan => plan.month === month);
+          const totalPlan = monthPlans.reduce((sum, plan) => sum + (plan.planQty || 0), 0);
+          const totalActual = monthPlans.reduce((sum, plan) => sum + (plan.actualQty || 0), 0);
+          const completion = totalPlan > 0 ? ((totalActual / totalPlan) * 100).toFixed(1) : '0.0';
+          
+          return (
+            <div key={index} className="monthly-chart-card" style={{ 
+              background: '#fff', 
+              borderRadius: '12px', 
+              padding: '24px',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              height: 'calc(100vh - 120px)',
+              marginBottom: '24px',
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: '0', fontSize: '1.5rem', fontWeight: '600', color: '#333' }}>{month}物料销量明细</h3>
+                <span style={{ 
+                  fontSize: '1rem', 
+                  padding: '6px 16px', 
+                  borderRadius: '20px',
+                  backgroundColor: parseFloat(completion) >= 80 ? '#dcfce7' : parseFloat(completion) >= 50 ? '#fef3c7' : '#fee2e2',
+                  color: parseFloat(completion) >= 80 ? '#16a34a' : parseFloat(completion) >= 50 ? '#ca8a04' : '#dc2626',
+                  fontWeight: '600'
+                }}>
+                  达成率: {completion}%
+                </span>
+              </div>
+              <div style={{ fontSize: '1rem', color: '#666', marginBottom: '20px', display: 'flex', gap: '32px' }}>
+                <span><strong>计划销量:</strong> <span style={{ color: '#3b82f6' }}>{totalPlan.toLocaleString()}</span></span>
+                <span><strong>实际销量:</strong> <span style={{ color: '#f97316' }}>{totalActual.toLocaleString()}</span></span>
+                <span><strong>差额:</strong> <span style={totalActual - totalPlan >= 0 ? { color: '#16a34a' } : { color: '#dc2626' }}>
+                  {(totalActual - totalPlan >= 0 ? '+' : '')}{(totalActual - totalPlan).toLocaleString()}
+                </span></span>
+              </div>
+              <div style={{ flex: 1, minHeight: '400px' }}>
+                <ReactECharts 
+                  option={getMonthlyMaterialChartOption(month)} 
+                  style={{ width: '100%', height: '100%' }} 
+                />
+              </div>
+            </div>
+          );
+        })}
+        
+        {/* 料行明细区域 - 放在所有图表之后 */}
+        <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '2px solid #eee' }}>
+          <h3 style={{ margin: '0 0 20px 0', fontSize: '1.3rem', fontWeight: '600', color: '#333' }}>📋 料行明细汇总</h3>
+          {materialMonthsWithData.map((month, monthIndex) => {
+            const monthPlans = materialPlans.filter(plan => plan.month === month);
+            // 过滤有数据的料行
+            const plansWithData = monthPlans.filter(plan => (plan.planQty || 0) > 0 || (plan.actualQty || 0) > 0);
+            
+            if (plansWithData.length === 0) return null;
+            
+            return (
+              <div key={monthIndex} style={{ marginBottom: '24px' }}>
+                <h4 style={{ margin: '0 0 16px 0', fontSize: '1.1rem', fontWeight: '600', color: '#333', padding: '8px 16px', background: '#f0f5ff', borderRadius: '8px', display: 'inline-block' }}>
+                  {month}
+                </h4>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '12px' }}>
+                  {plansWithData.map((plan, idx) => (
+                    <div key={idx} style={{ 
+                      background: '#f8fafc', 
+                      borderRadius: '8px', 
+                      padding: '12px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px'
+                    }}>
+                      <div style={{ fontSize: '0.9rem', fontWeight: '500', color: '#333' }}>{plan.materialName}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                        计划: <span style={{ color: '#3b82f6', fontWeight: '500' }}>{(plan.planQty || 0).toLocaleString()}</span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#666' }}>
+                        实际: <span style={{ color: '#f97316', fontWeight: '500' }}>{(plan.actualQty || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        
+        {materialMonthsWithData.length === 0 && (
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: '#999', fontSize: '1.2rem' }}>
+            暂无销量数据
+          </div>
+        )}
       </div>
       <div className="footer-note">
         点击返回主看板

@@ -43,6 +43,7 @@ import ReceiptWeighing from './pages/sales/ReceiptWeighing';
 import ApprovalInstance from './pages/dingding/ApprovalInstance';
 import ApprovalFormData from './pages/dingding/ApprovalFormData';
 import ApprovalProcessConfig from './pages/dingding/ApprovalProcessConfig';
+import AIChat from '../fengchi-ai/pages/Chat';
 
 const ManageSystemRoutes: React.FC = () => {
   return (
@@ -97,6 +98,8 @@ const ManageSystemRoutes: React.FC = () => {
       <Route path="dingding/approval-instance" element={<ApprovalInstance />} />
       <Route path="dingding/approval-form-data" element={<ApprovalFormData />} />
       <Route path="dingding/approval-process-config" element={<ApprovalProcessConfig />} />
+      {/* AI 智能助手相关路由 */}
+      <Route path="fengchi-ai/chat" element={<AIChat />} />
       {/* 其他路由可以在这里添加 */}
     </Routes>
   );

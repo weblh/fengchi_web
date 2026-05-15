@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
+    "build:geo-pack": "node scripts/build-geo-province-pack.mjs",
+    "geo:download": "node scripts/download-geo-provinces.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "electron": "electron .",
